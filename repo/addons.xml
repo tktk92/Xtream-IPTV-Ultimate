@@ -7,9 +7,9 @@
     <extension point="xbmc.addon.repository"
                name="Xtream IPTV Ultimate Repository">
         <dir>
-            <info compressed="false">https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/addons.xml</info>
-            <checksum>https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/addons.xml.md5</checksum>
-            <datadir zip="true">https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/zips/</datadir>
+            <info compressed="false">https://tktk92.github.io/Xtream-IPTV-Ultimate/repo/addons.xml</info>
+            <checksum>https://tktk92.github.io/Xtream-IPTV-Ultimate/repo/addons.xml.md5</checksum>
+            <datadir zip="true">https://tktk92.github.io/Xtream-IPTV-Ultimate/repo/zips/</datadir>
         </dir>
     </extension>
     <extension point="xbmc.addon.metadata">
