@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sqlite3
 import xml.etree.ElementTree as ET
 
 import xbmc
@@ -76,6 +77,92 @@ def remove_empty_strm_dirs():
     return remove_empty_dirs(get_movie_strm_path()) + remove_empty_dirs(get_series_strm_path())
 
 
+def normalize_kodi_path(path):
+    if not path:
+        return ""
+    if not path.endswith("/") and not path.endswith("\\"):
+        return path + "/"
+    return path
+
+
+def get_video_database_path():
+    database_dir = xbmcvfs.translatePath("special://profile/Database")
+    if not os.path.exists(database_dir):
+        return ""
+
+    candidates = []
+    for name in os.listdir(database_dir):
+        if name.startswith("MyVideos") and name.endswith(".db"):
+            try:
+                number = int(name.replace("MyVideos", "").replace(".db", ""))
+            except Exception:
+                number = 0
+            candidates.append((number, os.path.join(database_dir, name)))
+
+    if not candidates:
+        return ""
+
+    return sorted(candidates, key=lambda item: item[0], reverse=True)[0][1]
+
+
+def ensure_path_row(cursor, path_value):
+    path_value = normalize_kodi_path(path_value)
+    cursor.execute("SELECT idPath FROM path WHERE strPath = ?", (path_value,))
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+
+    cursor.execute(
+        "INSERT INTO path (strPath, strContent, strScraper, scanRecursive, useFolderNames, noUpdate, exclude) "
+        "VALUES (?, '', '', 0, 0, 0, 0)",
+        (path_value,)
+    )
+    return cursor.lastrowid
+
+
+def set_path_content(cursor, path_value, content, scraper, recursive, use_folder_names):
+    path_id = ensure_path_row(cursor, path_value)
+    cursor.execute(
+        "UPDATE path SET strContent = ?, strScraper = ?, scanRecursive = ?, useFolderNames = ?, noUpdate = 0, exclude = 0 "
+        "WHERE idPath = ?",
+        (content, scraper, recursive, use_folder_names, path_id)
+    )
+
+
+def setup_video_library_content(show_dialog=False):
+    db_path = get_video_database_path()
+    if not db_path:
+        if show_dialog:
+            xbmcgui.Dialog().ok("Kodi Bibliothek", "Kodi Video-Datenbank wurde nicht gefunden.")
+        return False
+
+    movie_path = normalize_kodi_path(get_movie_strm_path())
+    series_path = normalize_kodi_path(get_series_strm_path())
+
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            cursor = conn.cursor()
+            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 1)
+            set_path_content(cursor, series_path, "tvshows", TV_SCRAPER_ID, 2147483647, 0)
+            conn.commit()
+        finally:
+            conn.close()
+
+        if show_dialog:
+            xbmcgui.Dialog().ok(
+                "Kodi Bibliothek",
+                "Inhalte wurden gesetzt:\n\n"
+                + MOVIE_SOURCE_NAME + " = Filme\n"
+                + SERIES_SOURCE_NAME + " = Serien"
+            )
+        return True
+    except Exception as e:
+        if show_dialog:
+            xbmcgui.Dialog().ok("Kodi Bibliothek", "Inhalte konnten nicht gesetzt werden:\n\n" + str(e))
+        return False
+
+
 def setup_kodi_sources():
     sources_path = xbmcvfs.translatePath("special://profile/sources.xml")
     movie_path = get_movie_strm_path()
@@ -124,16 +211,15 @@ def setup_kodi_sources():
             os.makedirs(folder)
 
         tree.write(sources_path, encoding="utf-8", xml_declaration=True)
+        content_status = "gesetzt" if setup_video_library_content(show_dialog=False) else "nicht gesetzt"
 
         xbmcgui.Dialog().ok(
             "Kodi Quellen",
             "Quellen wurden eingerichtet.\n\n"
             "Filme: " + movies_status + "\n"
             "Serien: " + series_status + "\n\n"
-            "Falls Kodi die Inhalte nicht sofort erkennt, bitte Kodi neu starten.\n\n"
-            "Danach unter Videos -> Dateien den Inhalt setzen:\n"
-            + MOVIE_SOURCE_NAME + " = Filme\n"
-            + SERIES_SOURCE_NAME + " = Serien"
+            "Bibliotheksinhalt: " + content_status + "\n\n"
+            "Falls Kodi die Inhalte nicht sofort erkennt, bitte Kodi neu starten und erneut scannen."
         )
     except Exception as e:
         xbmcgui.Dialog().ok("Fehler", "Quellen konnten nicht eingerichtet werden:\n\n" + str(e))

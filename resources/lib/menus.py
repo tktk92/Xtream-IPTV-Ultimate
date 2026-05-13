@@ -51,6 +51,7 @@ def kodi_library_menu():
     items = [
         ("Bibliothek bereinigen und scannen", {"mode": "clean_and_scan_library"}, False),
         ("Quellen automatisch einrichten", {"mode": "setup_sources"}, False),
+        ("Bibliotheksinhalt automatisch setzen", {"mode": "setup_library_content"}, False),
         ("Kodi Scraper installieren", {"mode": "install_metadata_scrapers"}, False),
     ]
     add_directory_items(items)
