@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.xtream.iptv.ultimate"
+       name="Xtream IPTV Ultimate Repository"
+       version="1.0.0"
+       provider-name="Sui">
+    <extension point="xbmc.addon.repository"
+               name="Xtream IPTV Ultimate Repository">
+        <dir>
+            <info compressed="false">https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/addons.xml</info>
+            <checksum>https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/addons.xml.md5</checksum>
+            <datadir zip="true">https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/zips/</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="de_DE">Repository fuer Xtream IPTV Ultimate</summary>
+        <description lang="de_DE">Kodi Repository fuer Installation und Updates von Xtream IPTV Ultimate.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
