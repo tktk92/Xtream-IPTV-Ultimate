@@ -6,6 +6,7 @@ LANGUAGE_NAMES = {
     "DE": "Deutsch",
     "GER": "Deutsch",
     "DEU": "Deutsch",
+    "CH": "Deutsch",
     "AR": "Arabisch",
     "ARA": "Arabisch",
     "EN": "Englisch",
@@ -51,7 +52,7 @@ def extract_language_from_category(category_name):
 
     if "ARABIC" in name or "ARAB" in name:
         return "Arabisch"
-    if "GERMAN" in name or "DEUTSCH" in name:
+    if "GERMAN" in name or "DEUTSCH" in name or "SWISS" in name or "SCHWEIZ" in name:
         return "Deutsch"
     if "ENGLISH" in name:
         return "Englisch"

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import xml.etree.ElementTree as ET
 
 import xbmc
@@ -81,6 +82,35 @@ def _clean_line(value):
     return _xml_text(value).replace("\r", " ").replace("\n", " ").strip()
 
 
+def clean_channel_name(name):
+    clean = _clean_line(name) or "Unbekannt"
+    language_prefixes = (
+        "DE|CH|GER|DEU|GERMAN|DEUTSCH|SWISS|SCHWEIZ|"
+        "AR|ARA|ARABIC|EN|ENG|ENGLISH|UK|US|"
+        "FR|FRENCH|ES|SPANISH|IT|ITALIAN|TR|TURKISH|"
+        "IN|HI|HINDI|TA|TAM|TAMIL|RU|AL|EXYU|YU|MULTI"
+    )
+
+    changed = True
+    while changed:
+        old = clean
+        clean = re.sub(
+            r'^\s*[\[\(\{]?\s*(' + language_prefixes + r')\s*[\]\)\}]?\s*(?:[-_|:•]+|\s{2,})\s*',
+            "",
+            clean,
+            flags=re.IGNORECASE
+        )
+        clean = re.sub(
+            r'^\s*[\[\(\{]\s*(' + language_prefixes + r')\s*[\]\)\}]\s*',
+            "",
+            clean,
+            flags=re.IGNORECASE
+        )
+        changed = old != clean
+
+    return clean.strip(" -_|:.") or _clean_line(name) or "Unbekannt"
+
+
 def get_allowed_categories():
     categories = xtream.api("get_live_categories")
     selected_languages = get_selected_languages()
@@ -125,7 +155,7 @@ def build_m3u():
                 if not stream_id:
                     continue
 
-                name = _clean_line(stream.get("name", "Unbekannt"))
+                name = clean_channel_name(stream.get("name", "Unbekannt"))
                 logo = _escape_attr(stream.get("stream_icon", ""))
                 epg_id = _escape_attr(stream.get("epg_channel_id", ""))
                 group = _escape_attr(category_name)
