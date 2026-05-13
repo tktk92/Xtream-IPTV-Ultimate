@@ -14,6 +14,7 @@ def clean_filename(name):
 
     clean = str(name).strip()
     clean = clean.replace("â”ƒ", " ").replace("┃", " ").replace("|", " ").replace("│", " ")
+    clean = clean.replace("–", "-").replace("—", "-").replace("'", "").replace('"', "")
 
     language_words = (
         "DE|GER|GERMAN|DEUTSCH|"
@@ -36,10 +37,17 @@ def clean_filename(name):
         r'^\s*(' + language_words + r')\s+',
     ]
 
+    end_patterns = [
+        r'\s*(' + language_words + r')\s*$',
+        r'\s*[-_|:]\s*(' + language_words + r')\s*$',
+    ]
+
     changed = True
     while changed:
         old = clean
         for pattern in start_patterns:
+            clean = re.sub(pattern, "", clean, flags=re.IGNORECASE)
+        for pattern in end_patterns:
             clean = re.sub(pattern, "", clean, flags=re.IGNORECASE)
         changed = old != clean
 

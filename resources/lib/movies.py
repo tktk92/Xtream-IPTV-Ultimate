@@ -15,6 +15,7 @@ from movie_lookup import (
     auto_movie_title,
     get_tmdb_api_key,
     prepare_movie_search_title,
+    title_from_tmdb_id,
     discover_recent_movies,
     search_tmdb_movie_fuzzy,
     format_tmdb_search_label
@@ -208,6 +209,47 @@ def get_selected_tmdb_language_codes():
 def normalize_movie_match_title(title):
     prepared = prepare_movie_search_title(title)
     return clean_filename(prepared or title).lower()
+
+
+def get_index_movie_by_stream_id(stream_id):
+    if not stream_id:
+        return None
+
+    wanted = str(stream_id)
+    data = cache_index.get_current_index_for_search()
+    for movie in data.get("movies", []):
+        if str(movie.get("stream_id") or "") == wanted:
+            return movie
+
+    return None
+
+
+def get_index_movies_by_stream_id():
+    data = cache_index.get_current_index_for_search()
+    result = {}
+    for movie in data.get("movies", []):
+        stream_id = movie.get("stream_id")
+        if stream_id not in (None, ""):
+            result[str(stream_id)] = movie
+    return result
+
+
+def get_movie_export_title(movie):
+    name = movie.get("name", "Film")
+    tmdb_id = movie.get("tmdb_id")
+
+    if tmdb_id:
+        return title_from_tmdb_id(tmdb_id, name)
+
+    return auto_movie_title(name)
+
+
+def choose_movie_export_title(stream_id, name):
+    index_movie = get_index_movie_by_stream_id(stream_id)
+    if index_movie and index_movie.get("tmdb_id"):
+        return title_from_tmdb_id(index_movie.get("tmdb_id"), name)
+
+    return choose_movie_title(name)
 
 
 def get_xtream_movie_candidates(selected_languages):
@@ -554,7 +596,7 @@ def search_movies():
 
 
 def export_movie(stream_id, name, ext, category_name):
-    clean_name = choose_movie_title(name)
+    clean_name = choose_movie_export_title(stream_id, name)
     clean_category = clean_filename(category_name) if category_name else None
     stream_url = xtream.movie_url(stream_id, ext)
 
@@ -581,18 +623,25 @@ def export_category(category_id, category_name):
         xbmcgui.Dialog().ok("Export", "Keine Filme gefunden")
         return
 
-    progress = xbmcgui.DialogProgress()
-    progress.create("Exportiere Kategorie", category_name)
     count = len(movies)
     created = 0
     failed = []
+    index_movies = get_index_movies_by_stream_id()
+    progress = xbmcgui.DialogProgress()
+    progress.create("Exportiere Kategorie", category_name)
 
     for index, movie in enumerate(movies):
         if progress.iscanceled():
             break
 
         name = movie.get("name", "Film")
-        clean_name = auto_movie_title(name)
+        index_movie = index_movies.get(str(movie.get("stream_id") or ""))
+        if index_movie:
+            movie.update({
+                "tmdb_id": index_movie.get("tmdb_id"),
+                "metadata_checked_at": index_movie.get("metadata_checked_at")
+            })
+        clean_name = get_movie_export_title(movie)
         clean_category = clean_filename(category_name) if category_name else None
         stream_id = movie.get("stream_id")
         extension = movie.get("container_extension", "mp4")

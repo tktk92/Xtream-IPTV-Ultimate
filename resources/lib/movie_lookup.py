@@ -11,8 +11,11 @@ from common import ADDON
 from strm import clean_filename
 
 TMDB_API_URL = "https://api.themoviedb.org/3/search/movie"
+TMDB_MOVIE_DETAILS_URL = "https://api.themoviedb.org/3/movie/{0}"
 TMDB_TV_SEARCH_URL = "https://api.themoviedb.org/3/search/tv"
 TMDB_DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie"
+
+TMDB_MOVIE_ID_CACHE = {}
 
 NOISE_WORDS = [
     "KINO", "CINEMA", "CAM", "CAMRIP", "CAM VERSION", "CAM-VERSION", "HDCAM", "HD CAM",
@@ -87,6 +90,35 @@ def search_tmdb_movie(query, language="de-DE"):
         return []
 
 
+def get_tmdb_movie_by_id(tmdb_id, language="de-DE"):
+    api_key = get_tmdb_api_key()
+    tmdb_id = str(tmdb_id or "").strip()
+    if not api_key or not tmdb_id:
+        return None
+
+    cache_key = (tmdb_id, language)
+    if cache_key in TMDB_MOVIE_ID_CACHE:
+        return TMDB_MOVIE_ID_CACHE[cache_key]
+
+    params = {
+        "api_key": api_key,
+        "language": language
+    }
+    url = TMDB_MOVIE_DETAILS_URL.format(urllib.parse.quote(tmdb_id)) + "?" + urllib.parse.urlencode(params)
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Xtream IPTV Ultimate"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = response.read().decode("utf-8")
+            payload = json.loads(data)
+            TMDB_MOVIE_ID_CACHE[cache_key] = payload
+            return payload
+    except Exception as e:
+        xbmc.log("[IPTV Addon] TMDb Film-ID Suche fehlgeschlagen: " + str(tmdb_id) + " | " + str(e), xbmc.LOGERROR)
+        TMDB_MOVIE_ID_CACHE[cache_key] = None
+        return None
+
+
 def search_tmdb_tv(query, language="de-DE"):
     api_key = get_tmdb_api_key()
     if not api_key or not query:
@@ -149,6 +181,23 @@ def format_tmdb_title(movie):
         return clean_filename(f"{title} ({year})")
 
     return clean_filename(title)
+
+
+def title_from_tmdb_id(tmdb_id, fallback_name=""):
+    movie = get_tmdb_movie_by_id(tmdb_id, "de-DE")
+    if not movie:
+        movie = get_tmdb_movie_by_id(tmdb_id, "en-US")
+
+    if movie:
+        title = movie.get("title") or movie.get("original_title") or fallback_name
+        date = movie.get("release_date") or ""
+        year = date[:4] if len(date) >= 4 else ""
+        if year:
+            return clean_filename("{0} ({1})".format(title, year))
+        if title:
+            return clean_filename(title)
+
+    return clean_filename(prepare_movie_search_title(fallback_name) or fallback_name)
 
 def get_top_matches(original_title, limit=5):
     query = prepare_movie_search_title(original_title)
