@@ -55,23 +55,30 @@ def setup_kodi_sources():
             video = ET.SubElement(root, "video")
             ET.SubElement(video, "default", attrib={"pathversion": "1"})
 
-        existing_paths = []
+        existing_sources_by_path = {}
         for source in video.findall("source"):
             path = source.find("path")
             if path is not None and path.text:
-                existing_paths.append(path.text)
+                existing_sources_by_path[path.text] = source
 
-        def add_source(name, path_value):
-            if path_value in existing_paths:
-                return False
+        def add_or_update_source(name, path_value):
+            existing = existing_sources_by_path.get(path_value)
+            if existing is not None:
+                source_name = existing.find("name")
+                if source_name is not None and source_name.text != name:
+                    source_name.text = name
+                    return "aktualisiert"
+                return "bereits vorhanden"
+
             source = ET.SubElement(video, "source")
             ET.SubElement(source, "name").text = name
             ET.SubElement(source, "path", attrib={"pathversion": "1"}).text = path_value
             ET.SubElement(source, "allowsharing").text = "true"
-            return True
+            existing_sources_by_path[path_value] = source
+            return "hinzugefuegt"
 
-        added_movies = add_source(MOVIE_SOURCE_NAME, movie_path)
-        added_series = add_source(SERIES_SOURCE_NAME, series_path)
+        movies_status = add_or_update_source(MOVIE_SOURCE_NAME, movie_path)
+        series_status = add_or_update_source(SERIES_SOURCE_NAME, series_path)
 
         folder = os.path.dirname(sources_path)
         if not os.path.exists(folder):
@@ -82,8 +89,8 @@ def setup_kodi_sources():
         xbmcgui.Dialog().ok(
             "Kodi Quellen",
             "Quellen wurden eingerichtet.\n\n"
-            "Filme hinzugefuegt: " + str(added_movies) + "\n"
-            "Serien hinzugefuegt: " + str(added_series) + "\n\n"
+            "Filme: " + movies_status + "\n"
+            "Serien: " + series_status + "\n\n"
             "Falls Kodi die Inhalte nicht sofort erkennt, bitte Kodi neu starten.\n\n"
             "Danach unter Videos -> Dateien den Inhalt setzen:\n"
             + MOVIE_SOURCE_NAME + " = Filme\n"
