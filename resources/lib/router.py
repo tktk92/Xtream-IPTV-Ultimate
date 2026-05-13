@@ -10,6 +10,7 @@ import movies
 import series
 import library
 import kodi_library
+import live_tv
 import storage
 import stream_check
 import settings_helper
@@ -32,6 +33,9 @@ def router():
 
     elif mode == "library_menu":
         menus.library_menu()
+
+    elif mode == "setup_live_tv":
+        live_tv.setup_live_tv()
 
     elif mode == "settings_menu":
         menus.settings_menu()

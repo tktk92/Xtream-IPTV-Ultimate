@@ -63,3 +63,10 @@ def series_url(episode_id, extension="mp4"):
     username = get_setting("username")
     password = get_setting("password")
     return f"{server}/series/{username}/{password}/{episode_id}.{extension}"
+
+
+def live_url(stream_id, extension="ts"):
+    server = get_setting("server_url").rstrip("/")
+    username = get_setting("username")
+    password = get_setting("password")
+    return f"{server}/live/{username}/{password}/{stream_id}.{extension}"

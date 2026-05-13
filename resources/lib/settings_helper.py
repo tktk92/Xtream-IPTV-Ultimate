@@ -142,6 +142,16 @@ def run_setup_wizard(force=False):
     if setup_sources:
         kodi_library.setup_kodi_sources()
 
+    setup_live_tv = xbmcgui.Dialog().yesno(
+        "Live TV",
+        "Sollen die Live-TV Sender fuer die ausgewaehlten Sprachen direkt in Kodi Live-TV eingerichtet werden?",
+        nolabel="Nein",
+        yeslabel="Einrichten"
+    )
+    if setup_live_tv:
+        import live_tv
+        live_tv.setup_live_tv()
+
     save_setup_state({"completed": True})
     xbmcgui.Dialog().ok(
         "Einrichtung abgeschlossen",
