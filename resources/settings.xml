@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+    <category label="IPTV Zugangsdaten">
+        <setting id="server_url" type="text" label="Server URL" default="http://example.com:8080"/>
+        <setting id="username" type="text" label="Benutzername" default=""/>
+        <setting id="password" type="text" label="Passwort" option="hidden" default=""/>
+        <setting id="tmdb_api_key" type="text" label="TMDb API Key fuer Filmtitel-Suche" option="hidden" default="a72260c2d3c23e1f1497e62172a4abeb"/>
+    </category>
+    <category label="Speicherpfade">
+        <setting id="movie_strm_path" type="folder" label="Filme Speicherort" default="special://profile/addon_data/plugin.video.xtream.strm/strm/Filme"/>
+        <setting id="series_strm_path" type="folder" label="Serien Speicherort" default="special://profile/addon_data/plugin.video.xtream.strm/strm/Serien"/>
+    </category>
+    <category label="Automatik">
+        <setting id="auto_tmdb_recent_import" type="bool" label="Beim Kodi-Start beliebte TMDb-Releases der letzten 6 Monate neu laden" default="true"/>
+    </category>
+</settings>
