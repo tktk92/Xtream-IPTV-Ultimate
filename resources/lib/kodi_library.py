@@ -154,7 +154,7 @@ def setup_video_library_content(show_dialog=False):
         conn = sqlite3.connect(db_path)
         try:
             cursor = conn.cursor()
-            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 1)
+            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 0)
             set_path_content(cursor, series_path, "tvshows", TV_SCRAPER_ID, 2147483647, 0)
             conn.commit()
         finally:
@@ -177,8 +177,8 @@ def setup_video_library_content(show_dialog=False):
 def setup_kodi_sources():
     sources_path = xbmcvfs.translatePath("special://profile/sources.xml")
     ensure_media_folders()
-    movie_path = get_movie_strm_path()
-    series_path = get_series_strm_path()
+    movie_path = normalize_kodi_path(get_movie_strm_path())
+    series_path = normalize_kodi_path(get_series_strm_path())
 
     try:
         if os.path.exists(sources_path):
@@ -197,7 +197,7 @@ def setup_kodi_sources():
         for source in video.findall("source"):
             path = source.find("path")
             if path is not None and path.text:
-                existing_sources_by_path[path.text] = source
+                existing_sources_by_path[normalize_kodi_path(path.text)] = source
 
         def add_or_update_source(name, path_value):
             existing = existing_sources_by_path.get(path_value)
@@ -205,6 +205,10 @@ def setup_kodi_sources():
                 source_name = existing.find("name")
                 if source_name is not None and source_name.text != name:
                     source_name.text = name
+                    return "aktualisiert"
+                source_path = existing.find("path")
+                if source_path is not None and source_path.text != path_value:
+                    source_path.text = path_value
                     return "aktualisiert"
                 return "bereits vorhanden"
 
