@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sqlite3
 import xml.etree.ElementTree as ET
 
 import xbmc
@@ -130,6 +129,17 @@ def set_path_content(cursor, path_value, content, scraper, recursive, use_folder
 
 
 def setup_video_library_content(show_dialog=False):
+    try:
+        import sqlite3
+    except Exception:
+        if show_dialog:
+            xbmcgui.Dialog().ok(
+                "Kodi Bibliothek",
+                "Automatisches Setzen des Bibliotheksinhalts ist auf diesem Kodi-System nicht verfuegbar.\n\n"
+                "Bitte einmalig unter Videos -> Dateien den Inhalt manuell setzen."
+            )
+        return False
+
     db_path = get_video_database_path()
     if not db_path:
         if show_dialog:
