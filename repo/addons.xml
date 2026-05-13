@@ -20,7 +20,7 @@
 </addon>
 <addon id="plugin.video.xtream.strm"
        name="Xtream IPTV Ultimate"
-       version="1.0.7"
+       version="1.0.8"
        provider-name="Sui">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>

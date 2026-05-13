@@ -21,6 +21,7 @@ def router():
     mode = params.get("mode")
 
     if mode is None:
+        settings_helper.run_setup_wizard(force=False)
         cache_index.ensure_index(show_progress=True)
         menus.main_menu()
 
@@ -35,6 +36,9 @@ def router():
 
     elif mode == "open_settings":
         settings_helper.open_settings()
+
+    elif mode == "setup_wizard":
+        settings_helper.run_setup_wizard(force=True)
 
     elif mode == "choose_languages":
         settings_helper.choose_languages()

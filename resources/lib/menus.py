@@ -77,6 +77,7 @@ def storage_menu():
 
 def settings_menu():
     items = [
+        ("Ersteinrichtung starten", {"mode": "setup_wizard"}, False),
         ("IPTV Zugangsdaten", {"mode": "open_settings"}, False),
         ("Speicherpfade", {"mode": "open_settings"}, False),
     ]

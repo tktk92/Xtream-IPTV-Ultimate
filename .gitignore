@@ -64,6 +64,7 @@ strm/
 
 # Runtime states and temporary index writes
 auto_import_state.json
+setup_state.json
 *.tmp
 *.bak
 
