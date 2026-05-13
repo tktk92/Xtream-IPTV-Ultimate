@@ -118,6 +118,9 @@ def router():
     elif mode == "delete_library_item":
         library.delete_library_item(params.get("path"))
 
+    elif mode == "delete_all_streams":
+        library.delete_all_streams()
+
     elif mode == "stream_check_menu":
         menus.stream_check_menu()
 

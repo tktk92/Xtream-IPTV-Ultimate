@@ -39,6 +39,7 @@ def library_menu():
     items = [
         ("Serien", {"mode": "library_series"}, True),
         ("Filme", {"mode": "library_movies"}, True),
+        ("Alle Streams löschen", {"mode": "delete_all_streams"}, False),
         ("Streams überprüfen", {"mode": "stream_check_menu"}, True),
         ("Kodi Bibliothek", {"mode": "kodi_library_menu"}, True),
         ("Speicherorte", {"mode": "storage_menu"}, True),
