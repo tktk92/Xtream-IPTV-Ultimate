@@ -32,13 +32,13 @@ def clean_filename(name):
 
     start_patterns = [
         r'^\s*[\[\(\{][^\]\)\}]{1,30}[\]\)\}]\s*',
-        r'^\s*[^A-Za-z0-9]{0,10}(' + language_words + r')[^A-Za-z0-9]{0,10}\s*',
+        r'^\s*[^A-Za-z0-9]{0,10}(' + language_words + r')(?=$|[^A-Za-z0-9])[^A-Za-z0-9]{0,10}\s*',
         r'^\s*(' + language_words + r')\s*[-_|:]\s*',
         r'^\s*(' + language_words + r')\s+',
     ]
 
     end_patterns = [
-        r'\s*(' + language_words + r')\s*$',
+        r'\s+(' + language_words + r')\s*$',
         r'\s*[-_|:]\s*(' + language_words + r')\s*$',
     ]
 
@@ -61,7 +61,7 @@ def clean_filename(name):
     for pattern in remove_patterns:
         clean = re.sub(pattern, "", clean, flags=re.IGNORECASE)
 
-    clean = re.sub(r'\s+', ' ', clean).strip(" -_|.[](){}")
+    clean = re.sub(r'\s+', ' ', clean).strip(" -_|.")
 
     for char in '<>:"/\\|?*':
         clean = clean.replace(char, "_")

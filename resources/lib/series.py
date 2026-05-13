@@ -10,7 +10,7 @@ from strm import write_episode, clean_filename
 from kodi_library import ask_clean_and_scan_after_export
 import xtream
 import cache_index
-from movie_lookup import get_tmdb_api_key, search_tmdb_tv_fuzzy, format_tmdb_search_label
+from movie_lookup import get_tmdb_api_key, search_tmdb_tv_fuzzy, format_tmdb_search_label, tv_title_from_tmdb_id
 
 
 def menu():
@@ -135,6 +135,27 @@ def add_series_item(serie):
     )
 
 
+def get_index_series_by_id(series_id):
+    if not series_id:
+        return None
+
+    wanted = str(series_id)
+    data = cache_index.get_current_index_for_search()
+    for serie in data.get("series", []):
+        if str(serie.get("series_id") or "") == wanted:
+            return serie
+
+    return None
+
+
+def get_series_export_title(series_id, fallback_name):
+    index_serie = get_index_series_by_id(series_id)
+    if index_serie and index_serie.get("tmdb_id"):
+        return tv_title_from_tmdb_id(index_serie.get("tmdb_id"), fallback_name)
+
+    return clean_filename(fallback_name)
+
+
 def search_series_via_tmdb(search_text):
     if not get_tmdb_api_key():
         return False
@@ -237,6 +258,7 @@ def show_season(series_id, series_name, season):
             HANDLE,
             build_url({
                 "mode": "export_episode",
+                "series_id": series_id,
                 "series_name": series_name,
                 "season": season,
                 "episode": episode_num,
@@ -341,12 +363,13 @@ def show_latest(limit=100):
     xbmcplugin.endOfDirectory(HANDLE)
 
 
-def export_episode(series_name, season, episode, episode_title, episode_id, ext):
+def export_episode(series_id, series_name, season, episode, episode_title, episode_id, ext):
     stream_url = xtream.series_url(episode_id, ext)
-    ok = write_episode(series_name, int(season), int(episode), episode_title, stream_url)
+    export_name = get_series_export_title(series_id, series_name)
+    ok = write_episode(export_name, int(season), int(episode), episode_title, stream_url)
 
     if ok:
-        xbmcgui.Dialog().notification("Episode erstellt", clean_filename(series_name), xbmcgui.NOTIFICATION_INFO, 5000)
+        xbmcgui.Dialog().notification("Episode erstellt", clean_filename(export_name), xbmcgui.NOTIFICATION_INFO, 5000)
         ask_clean_and_scan_after_export()
 
 
@@ -359,7 +382,8 @@ def export_season(series_id, series_name, season):
         xbmcgui.Dialog().ok("Staffel", "Keine Episoden in dieser Staffel gefunden")
         return
 
-    export_episode_list(series_name, [(season, ep) for ep in season_episodes], "Exportiere Staffel")
+    export_name = get_series_export_title(series_id, series_name)
+    export_episode_list(export_name, [(season, ep) for ep in season_episodes], "Exportiere Staffel")
 
 
 def export_series(series_id, series_name):
@@ -375,7 +399,8 @@ def export_series(series_id, series_name):
         for ep in eps:
             flat.append((season_num, ep))
 
-    export_episode_list(series_name, flat, "Exportiere Serie")
+    export_name = get_series_export_title(series_id, series_name)
+    export_episode_list(export_name, flat, "Exportiere Serie")
 
 
 def export_episode_list(series_name, flat, progress_title):

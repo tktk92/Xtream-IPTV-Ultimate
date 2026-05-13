@@ -95,7 +95,7 @@ def router():
         series.search_series()
 
     elif mode == "export_episode":
-        series.export_episode(params.get("series_name"), params.get("season"), params.get("episode"), params.get("episode_title"), params.get("episode_id"), params.get("ext"))
+        series.export_episode(params.get("series_id"), params.get("series_name"), params.get("season"), params.get("episode"), params.get("episode_title"), params.get("episode_id"), params.get("ext"))
 
     elif mode == "export_series":
         series.export_series(params.get("series_id"), params.get("series_name"))
