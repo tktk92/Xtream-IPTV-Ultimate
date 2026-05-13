@@ -122,6 +122,17 @@ def run_setup_wizard(force=False):
     if choose_lang:
         choose_languages()
 
+    install_scrapers = xbmcgui.Dialog().yesno(
+        "Kodi Scraper",
+        "Sollen die offiziellen Kodi-Scraper fuer Filme und Serien installiert werden?\n\n"
+        "Filme: The Movie Database Python\n"
+        "Serien: TMDb TV Shows",
+        nolabel="Nein",
+        yeslabel="Installieren"
+    )
+    if install_scrapers:
+        kodi_library.install_metadata_scrapers(show_dialog=True)
+
     setup_sources = xbmcgui.Dialog().yesno(
         "Kodi Quellen",
         "Sollen die Quellen fuer Filme und Serien jetzt automatisch in Kodi eingerichtet werden?",

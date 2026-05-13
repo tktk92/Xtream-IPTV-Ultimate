@@ -133,6 +133,9 @@ def router():
     elif mode == "setup_sources":
         kodi_library.setup_kodi_sources()
 
+    elif mode == "install_metadata_scrapers":
+        kodi_library.install_metadata_scrapers(show_dialog=True)
+
     elif mode == "scan_library":
         kodi_library.scan_kodi_library()
 

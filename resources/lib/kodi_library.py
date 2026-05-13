@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 
 import xbmc
 import xbmcgui
+import xbmcaddon
 import xbmcvfs
 
 from common import get_movie_strm_path, get_series_strm_path
@@ -12,6 +13,44 @@ from common import get_movie_strm_path, get_series_strm_path
 
 MOVIE_SOURCE_NAME = "Xtream IPTV Ultimate Filme"
 SERIES_SOURCE_NAME = "Xtream IPTV Ultimate Serien"
+MOVIE_SCRAPER_ID = "metadata.themoviedb.org.python"
+TV_SCRAPER_ID = "metadata.tvshows.themoviedb.org.python"
+SCRAPER_LABELS = {
+    MOVIE_SCRAPER_ID: "The Movie Database Python",
+    TV_SCRAPER_ID: "TMDb TV Shows",
+}
+
+
+def is_addon_installed(addon_id):
+    try:
+        xbmcaddon.Addon(addon_id)
+        return True
+    except Exception:
+        return False
+
+
+def install_addon(addon_id):
+    xbmc.executebuiltin("InstallAddon({0})".format(addon_id), True)
+    return is_addon_installed(addon_id)
+
+
+def install_metadata_scrapers(show_dialog=True):
+    results = []
+    for addon_id in (MOVIE_SCRAPER_ID, TV_SCRAPER_ID):
+        label = SCRAPER_LABELS.get(addon_id, addon_id)
+        if is_addon_installed(addon_id):
+            results.append("{0}: bereits installiert".format(label))
+            continue
+
+        if install_addon(addon_id):
+            results.append("{0}: installiert".format(label))
+        else:
+            results.append("{0}: nicht installiert".format(label))
+
+    if show_dialog:
+        xbmcgui.Dialog().ok("Kodi Scraper", "\n".join(results))
+
+    return results
 
 
 def remove_empty_dirs(path):
