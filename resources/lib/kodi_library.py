@@ -9,6 +9,7 @@ import xbmcaddon
 import xbmcvfs
 
 from common import get_movie_strm_path, get_series_strm_path
+from strm import ensure_media_folders
 
 
 MOVIE_SOURCE_NAME = "Xtream IPTV Ultimate Filme"
@@ -175,6 +176,7 @@ def setup_video_library_content(show_dialog=False):
 
 def setup_kodi_sources():
     sources_path = xbmcvfs.translatePath("special://profile/sources.xml")
+    ensure_media_folders()
     movie_path = get_movie_strm_path()
     series_path = get_series_strm_path()
 

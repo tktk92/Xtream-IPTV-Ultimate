@@ -14,6 +14,7 @@ import storage
 import stream_check
 import settings_helper
 import cache_index
+from strm import ensure_media_folders
 
 
 def router():
@@ -21,6 +22,7 @@ def router():
     mode = params.get("mode")
 
     if mode is None:
+        ensure_media_folders()
         settings_helper.run_setup_wizard(force=False)
         cache_index.ensure_index(show_progress=True)
         menus.main_menu()
