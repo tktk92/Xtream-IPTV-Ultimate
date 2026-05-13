@@ -2,7 +2,7 @@
 <addons>
 <addon id="repository.xtream.iptv.ultimate"
        name="Xtream IPTV Ultimate Repository"
-       version="1.0.0"
+       version="1.0.1"
        provider-name="Sui">
     <extension point="xbmc.addon.repository"
                name="Xtream IPTV Ultimate Repository">
@@ -20,7 +20,7 @@
 </addon>
 <addon id="plugin.video.xtream.strm"
        name="Xtream IPTV Ultimate"
-       version="1.0.6"
+       version="1.0.7"
        provider-name="Sui">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
