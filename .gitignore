@@ -58,6 +58,10 @@ cache/
 strm/
 *.strm
 
+# Kodi repository zips must stay tracked even though the addon id ends with .strm
+!repo/zips/plugin.video.xtream.strm/
+!repo/zips/plugin.video.xtream.strm/**
+
 # Runtime states and temporary index writes
 auto_import_state.json
 *.tmp
