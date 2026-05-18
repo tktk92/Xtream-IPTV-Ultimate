@@ -2,7 +2,9 @@
 
 import os
 import re
+import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import xbmc
 import xbmcaddon
@@ -20,6 +22,55 @@ import xtream
 IPTV_SIMPLE_ID = "pvr.iptvsimple"
 IPTV_SIMPLE_PROFILE = "special://profile/addon_data/" + IPTV_SIMPLE_ID
 IPTV_SIMPLE_INSTANCE_NAME = "Xtream IPTV Ultimate"
+LIVE_CHECK_WORKERS = 8
+LIVE_CHECK_TIMEOUT = 5
+
+EPG_NAME_MAP = {
+    "DAS ERSTE": "ard.de",
+    "ARD": "ard.de",
+    "ZDF": "zdf.de",
+    "RTL": "rtl.de",
+    "RTL II": "rtl2.de",
+    "RTL2": "rtl2.de",
+    "SAT.1": "sat1.de",
+    "SAT1": "sat1.de",
+    "PROSIEBEN": "pro7.de",
+    "PRO7": "pro7.de",
+    "VOX": "vox.de",
+    "KABEL EINS": "kabel1.de",
+    "KABEL 1": "kabel1.de",
+    "ARTE": "arte.de",
+    "SIXX": "sixx.de",
+    "3SAT": "3sat.de",
+    "NTV": "ntv.de",
+    "WDR": "wdr.de",
+    "NDR": "ndr.de",
+    "SWR": "swrsr.de",
+    "TAGESSCHAU24": "tagesschau24.de",
+    "PHOENIX": "phoenix.de",
+    "BR FERNSEHEN": "br.de",
+    "ARD-ALPHA": "ardalpha.de",
+    "RTL PASSION": "rtlpassion.de",
+    "RTL CRIME": "rtlcrime.de",
+    "RTL UP": "rtlplus.de",
+    "NITRO": "rtlnitro.de",
+    "RTL LIVING": "rtlliving.de",
+    "ZDF NEO": "zdfneo.de",
+    "ZDF INFO": "zdfinfo.de",
+    "DMAX": "dmax.de",
+    "TELE 5": "tele5.de",
+    "ANIXE": "anixe.de",
+    "WELT": "welt.de",
+    "MDR": "mdr.de",
+    "NICKELODEON": "nickelodeon.de",
+    "NICK TOONS": "nicktoons.de",
+    "NICK JR": "nickjr.de",
+    "DISNEY CHANNEL": "disneychannel.de",
+    "CARTOON NETWORK": "cartoonnetwork.de",
+    "SUPER RTL": "superrtl.de",
+    "KIKA": "kika.de",
+    "SKY ONE": "sky1.de",
+}
 
 
 def _m3u_path():
@@ -83,6 +134,13 @@ def _clean_line(value):
     return _xml_text(value).replace("\r", " ").replace("\n", " ").strip()
 
 
+def _setting_bool(key, default=False):
+    value = get_setting(key).lower()
+    if value == "":
+        return default
+    return value in ("true", "1", "yes", "ja")
+
+
 def _epg_url():
     server = get_setting("server_url").rstrip("/")
     username = get_setting("username")
@@ -139,6 +197,94 @@ def clean_group_name(name):
     return clean.strip(" -_|:.") or clean_channel_name(name)
 
 
+def normalize_epg_name(name):
+    clean = clean_channel_name(name).upper()
+    clean = re.sub(r"\b(4K|UHD|FHD|HD|SD)\b", " ", clean)
+    clean = clean.replace("+", " PLUS")
+    clean = re.sub(r"[^A-Z0-9. ]+", " ", clean)
+    return re.sub(r"\s+", " ", clean).strip()
+
+
+def infer_epg_id(name):
+    normalized = normalize_epg_name(name)
+    if not normalized:
+        return ""
+
+    for label in sorted(EPG_NAME_MAP.keys(), key=len, reverse=True):
+        if normalized == label or normalized.startswith(label + " "):
+            return EPG_NAME_MAP[label]
+
+    return ""
+
+
+def get_epg_id(stream, clean_name):
+    epg_id = _clean_line(stream.get("epg_channel_id", ""))
+    return epg_id or infer_epg_id(clean_name)
+
+
+def stream_looks_playable(url):
+    if not url:
+        return False
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "VLC/3.0.18 LibVLC/3.0.18",
+                "Range": "bytes=0-4095"
+            }
+        )
+        response = urllib.request.urlopen(req, timeout=LIVE_CHECK_TIMEOUT)
+        try:
+            response.read(1)
+        finally:
+            response.close()
+        return True
+    except Exception:
+        return False
+
+
+def filter_playable_streams(items, progress=None):
+    if not _setting_bool("live_tv_check_streams", False):
+        return items, 0
+
+    playable = []
+    skipped = 0
+    total = len(items)
+    completed = 0
+
+    with ThreadPoolExecutor(max_workers=LIVE_CHECK_WORKERS) as executor:
+        futures = {
+            executor.submit(stream_looks_playable, item.get("stream_url")): item
+            for item in items
+        }
+
+        for future in as_completed(futures):
+            item = futures[future]
+            completed += 1
+
+            if progress and progress.iscanceled():
+                skipped += total - completed + 1
+                for pending in futures:
+                    pending.cancel()
+                break
+
+            try:
+                ok = future.result()
+            except Exception:
+                ok = False
+
+            if ok:
+                playable.append(item)
+            else:
+                skipped += 1
+
+            if progress and total:
+                progress.update(int(completed / total * 100), "Pruefe Streams: " + item.get("name", "Sender"))
+
+    return sorted(playable, key=lambda item: item.get("order", 0)), skipped
+
+
 def get_allowed_categories():
     categories = xtream.api("get_live_categories")
     selected_languages = get_selected_languages()
@@ -160,10 +306,9 @@ def get_allowed_categories():
 def build_m3u():
     categories = get_allowed_categories()
     if not categories:
-        return "", 0
+        return "", 0, 0
 
-    lines = ["#EXTM3U"]
-    total = 0
+    items = []
 
     progress = xbmcgui.DialogProgress()
     progress.create("Live TV", "Lade Live-TV Sender...")
@@ -185,37 +330,49 @@ def build_m3u():
 
                 name = clean_channel_name(stream.get("name", "Unbekannt"))
                 logo = _escape_attr(stream.get("stream_icon", ""))
-                epg_id = _escape_attr(stream.get("epg_channel_id", ""))
+                epg_id = _escape_attr(get_epg_id(stream, name))
                 group = _escape_attr(clean_group_name(category_name))
                 stream_url = _clean_line(stream.get("direct_source")) or xtream.live_url(stream_id, "ts")
 
-                lines.append(
-                    '#EXTINF:-1 tvg-id="{0}" tvg-name="{1}" tvg-logo="{2}" group-title="{3}",{4}'.format(
-                        epg_id,
-                        _escape_attr(name),
-                        logo,
-                        group,
-                        name
-                    )
-                )
-                lines.append(stream_url)
-                total += 1
+                items.append({
+                    "order": len(items),
+                    "epg_id": epg_id,
+                    "name": name,
+                    "logo": logo,
+                    "group": group,
+                    "stream_url": stream_url
+                })
+
+        items, skipped = filter_playable_streams(items, progress)
     finally:
         progress.close()
 
-    return "\n".join(lines) + "\n", total
+    lines = ["#EXTM3U"]
+    for item in items:
+        lines.append(
+            '#EXTINF:-1 tvg-id="{0}" tvg-name="{1}" tvg-logo="{2}" group-title="{3}",{4}'.format(
+                item.get("epg_id", ""),
+                _escape_attr(item.get("name", "Unbekannt")),
+                item.get("logo", ""),
+                item.get("group", ""),
+                item.get("name", "Unbekannt")
+            )
+        )
+        lines.append(item.get("stream_url", ""))
+
+    return "\n".join(lines) + "\n", len(items), skipped
 
 
 def write_live_tv_m3u():
-    content, total = build_m3u()
+    content, total, skipped = build_m3u()
     if not content or total <= 0:
         xbmcgui.Dialog().ok("Live TV", "Keine Live-TV Sender fuer die ausgewaehlten Sprachen gefunden.")
-        return None, 0
+        return None, 0, 0
 
     path = _m3u_path()
     write_text_file(path, content)
-    xbmc.log("LIVE TV M3U ERSTELLT: " + path + " | Sender=" + str(total), xbmc.LOGINFO)
-    return path, total
+    xbmc.log("LIVE TV M3U ERSTELLT: " + path + " | Sender=" + str(total) + " | ausgelassen=" + str(skipped), xbmc.LOGINFO)
+    return path, total, skipped
 
 
 def _write_iptv_simple_instance(m3u_path):
@@ -286,7 +443,7 @@ def _reload_pvr():
 
 
 def setup_live_tv():
-    m3u_path, total = write_live_tv_m3u()
+    m3u_path, total, skipped = write_live_tv_m3u()
     if not m3u_path:
         return
 
@@ -297,5 +454,5 @@ def setup_live_tv():
 
     xbmcgui.Dialog().ok(
         "Live TV",
-        "Live TV wurde eingerichtet.\n\nSender: {0}\n\nFalls Kodi die Sender nicht sofort zeigt, Kodi einmal neu starten.".format(total)
+        "Live TV wurde eingerichtet.\n\nSender: {0}\nAusgelassen: {1}\n\nFalls Kodi die Sender nicht sofort zeigt, Kodi einmal neu starten.".format(total, skipped)
     )

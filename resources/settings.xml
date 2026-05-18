@@ -12,5 +12,6 @@
     </category>
     <category label="Automatik">
         <setting id="auto_tmdb_recent_import" type="bool" label="Beim Kodi-Start beliebte TMDb-Releases der letzten 6 Monate neu laden" default="true"/>
+        <setting id="live_tv_check_streams" type="bool" label="Live-TV Sender beim Einrichten pruefen und defekte auslassen" default="false"/>
     </category>
 </settings>
