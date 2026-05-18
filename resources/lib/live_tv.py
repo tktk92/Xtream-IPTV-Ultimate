@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,6 +28,7 @@ LIVE_CHECK_TIMEOUT = 5
 PVR_DATABASE_PREFIXES = ("Epg", "TV")
 LIVE_TV_DELETE_RETRIES = 20
 LIVE_TV_DELETE_RETRY_SLEEP_MS = 500
+LIVE_TV_LOCK_MAX_AGE_SECONDS = 1800
 
 EPG_NAME_MAP = {
     "ARD ALPHA": "ardalpha.de",
@@ -90,6 +92,11 @@ EPG_NAME_MAP = {
 def _m3u_path():
     folder = ensure_folder(xbmcvfs.translatePath(ADDON_PROFILE))
     return os.path.join(folder, "live_tv.m3u8")
+
+
+def _live_tv_lock_path():
+    folder = ensure_folder(xbmcvfs.translatePath(ADDON_PROFILE))
+    return os.path.join(folder, "live_tv_setup.lock")
 
 
 def _iptv_simple_profile_folder():
@@ -482,18 +489,22 @@ def _delete_file(path):
     return False, True
 
 
-def _delete_matching_files(folder, predicate):
+def _delete_matching_files(folder, predicate, progress=None, progress_start=0, progress_end=100, title="Loesche Daten"):
     deleted = []
     failed = []
 
     try:
-        filenames = os.listdir(folder)
+        filenames = [name for name in os.listdir(folder) if predicate(name)]
     except Exception:
         return deleted, failed
 
-    for filename in filenames:
-        if not predicate(filename):
-            continue
+    total = len(filenames)
+    for index, filename in enumerate(filenames):
+        if progress:
+            percent = progress_start
+            if total:
+                percent = progress_start + int((index / total) * (progress_end - progress_start))
+            progress.update(percent, title + ":\n" + filename)
 
         path = os.path.join(folder, filename)
         removed, blocked = _delete_file(path)
@@ -506,57 +517,119 @@ def _delete_matching_files(folder, predicate):
 
 
 def clear_live_tv_data():
-    xbmc.executebuiltin("StopPVRManager")
-    xbmc.sleep(1500)
+    progress = xbmcgui.DialogProgress()
+    progress.create("Live TV", "Starte Zuruecksetzen...")
 
-    deleted = []
-    failed = []
-    removed, blocked = _delete_matching_files(
-        _kodi_database_folder(),
-        lambda name: name.endswith(".db") and name.startswith(PVR_DATABASE_PREFIXES)
-    )
-    deleted.extend(removed)
-    failed.extend(blocked)
+    try:
+        progress.update(5, "Stoppe PVR Manager...")
+        xbmc.executebuiltin("StopPVRManager")
+        xbmc.sleep(1500)
 
-    removed, blocked = _delete_matching_files(
-        _iptv_simple_profile_folder(),
-        lambda name: name.startswith("xmltv") and ".cache" in name
-    )
-    deleted.extend(removed)
-    failed.extend(blocked)
+        deleted = []
+        failed = []
+        progress.update(15, "Loesche Kodi PVR/EPG Daten...")
+        removed, blocked = _delete_matching_files(
+            _kodi_database_folder(),
+            lambda name: name.endswith(".db") and name.startswith(PVR_DATABASE_PREFIXES),
+            progress,
+            15,
+            60,
+            "Loesche Kodi Datenbank"
+        )
+        deleted.extend(removed)
+        failed.extend(blocked)
 
-    return deleted, failed
+        progress.update(65, "Loesche IPTV Simple EPG Cache...")
+        removed, blocked = _delete_matching_files(
+            _iptv_simple_profile_folder(),
+            lambda name: name.startswith("xmltv") and ".cache" in name,
+            progress,
+            65,
+            90,
+            "Loesche EPG Cache"
+        )
+        deleted.extend(removed)
+        failed.extend(blocked)
+
+        progress.update(100, "Zuruecksetzen abgeschlossen.")
+        xbmc.sleep(300)
+        return deleted, failed
+    finally:
+        progress.close()
+
+
+def _acquire_live_tv_lock():
+    path = _live_tv_lock_path()
+    try:
+        if os.path.exists(path):
+            try:
+                if os.path.getmtime(path) + LIVE_TV_LOCK_MAX_AGE_SECONDS < time.time():
+                    os.remove(path)
+            except Exception:
+                pass
+
+            if os.path.exists(path):
+                xbmcgui.Dialog().notification(
+                    "Live TV",
+                    "Einrichtung laeuft bereits.",
+                    xbmcgui.NOTIFICATION_INFO,
+                    3000
+                )
+                return False
+
+        with open(path, "w") as handle:
+            handle.write("running")
+        return True
+    except Exception:
+        return True
+
+
+def _release_live_tv_lock():
+    try:
+        path = _live_tv_lock_path()
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
 
 
 def setup_live_tv(reset_data=False):
-    deleted = []
-    failed = []
-    if reset_data:
-        deleted, failed = clear_live_tv_data()
-
-    m3u_path, total, skipped = write_live_tv_m3u()
-    if not m3u_path:
+    if not _acquire_live_tv_lock():
         return
 
-    _write_iptv_simple_instance(m3u_path)
-    _configure_legacy_settings(m3u_path)
-    _enable_iptv_simple()
-    _reload_pvr()
+    try:
+        deleted = []
+        failed = []
+        if reset_data:
+            xbmcgui.Dialog().notification("Live TV", "Setze PVR/EPG Daten zurueck...", xbmcgui.NOTIFICATION_INFO, 3000)
+            deleted, failed = clear_live_tv_data()
 
-    xbmcgui.Dialog().ok(
-        "Live TV",
-        "Live TV wurde eingerichtet.\n\n"
-        "Sender: {0}\n"
-        "Ausgelassen: {1}\n"
-        "PVR/EPG Daten geloescht: {2}\n"
-        "Nicht geloescht: {3}\n\n"
-        "{4}".format(
-            total,
-            skipped,
-            ", ".join(deleted) if deleted else "keine",
-            ", ".join(failed) if failed else "keine",
-            "Falls Dateien nicht geloescht wurden, Kodi neu starten und erneut Live TV einrichten."
-            if failed else
-            "PVR/EPG Daten wurden erfolgreich zurueckgesetzt."
+        xbmcgui.Dialog().notification("Live TV", "Erstelle Senderliste...", xbmcgui.NOTIFICATION_INFO, 3000)
+        m3u_path, total, skipped = write_live_tv_m3u()
+        if not m3u_path:
+            return
+
+        _write_iptv_simple_instance(m3u_path)
+        _configure_legacy_settings(m3u_path)
+        _enable_iptv_simple()
+        _reload_pvr()
+
+        xbmcgui.Dialog().ok(
+            "Live TV",
+            "Live TV wurde eingerichtet.\n\n"
+            "Sender: {0}\n"
+            "Ausgelassen: {1}\n"
+            "PVR/EPG Daten geloescht: {2}\n"
+            "Nicht geloescht: {3}\n\n"
+            "{4}".format(
+                total,
+                skipped,
+                ", ".join(deleted) if deleted else "keine",
+                ", ".join(failed) if failed else "keine",
+                "Falls Dateien nicht geloescht wurden, Kodi neu starten und erneut Live TV einrichten."
+                if failed else
+                "PVR/EPG Daten wurden erfolgreich zurueckgesetzt."
+            )
         )
-    )
+    finally:
+        _release_live_tv_lock()
