@@ -35,10 +35,7 @@ def router():
         menus.library_menu()
 
     elif mode == "setup_live_tv":
-        live_tv.setup_live_tv()
-
-    elif mode == "reset_live_tv":
-        live_tv.reset_live_tv_data()
+        live_tv.setup_live_tv(reset_data=True)
 
     elif mode == "settings_menu":
         menus.settings_menu()

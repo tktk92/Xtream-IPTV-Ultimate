@@ -508,28 +508,11 @@ def clear_live_tv_data():
     return deleted
 
 
-def reset_live_tv_data():
-    confirmed = xbmcgui.Dialog().yesno(
-        "Live TV zuruecksetzen",
-        "Kodi PVR- und EPG-Daten loeschen und Live-TV danach neu einrichten?\n\n"
-        "Senderliste, EPG-Datenbank und IPTV-Simple EPG-Cache werden neu aufgebaut.",
-        nolabel="Abbrechen",
-        yeslabel="Zuruecksetzen"
-    )
-    if not confirmed:
-        return
+def setup_live_tv(reset_data=False):
+    deleted = []
+    if reset_data:
+        deleted = clear_live_tv_data()
 
-    deleted = clear_live_tv_data()
-    xbmcgui.Dialog().notification(
-        "Live TV",
-        "PVR/EPG Daten geloescht: " + str(len(deleted)),
-        xbmcgui.NOTIFICATION_INFO,
-        3000
-    )
-    setup_live_tv()
-
-
-def setup_live_tv():
     m3u_path, total, skipped = write_live_tv_m3u()
     if not m3u_path:
         return
@@ -541,5 +524,5 @@ def setup_live_tv():
 
     xbmcgui.Dialog().ok(
         "Live TV",
-        "Live TV wurde eingerichtet.\n\nSender: {0}\nAusgelassen: {1}\n\nFalls Kodi die Sender nicht sofort zeigt, Kodi einmal neu starten.".format(total, skipped)
+        "Live TV wurde eingerichtet.\n\nSender: {0}\nAusgelassen: {1}\nPVR/EPG Daten geloescht: {2}\n\nFalls Kodi die Sender nicht sofort zeigt, Kodi einmal neu starten.".format(total, skipped, len(deleted))
     )

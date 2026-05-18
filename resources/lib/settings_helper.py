@@ -150,7 +150,7 @@ def run_setup_wizard(force=False):
     )
     if setup_live_tv:
         import live_tv
-        live_tv.setup_live_tv()
+        live_tv.setup_live_tv(reset_data=True)
 
     save_setup_state({"completed": True})
     xbmcgui.Dialog().ok(
