@@ -10,6 +10,7 @@ import xbmcgui
 import xbmcvfs
 
 from common import ADDON_PROFILE
+from common import get_setting
 from config import get_selected_languages
 from language_filter import extract_language_from_category
 from strm import ensure_folder, write_text_file
@@ -80,6 +81,17 @@ def _escape_attr(value):
 
 def _clean_line(value):
     return _xml_text(value).replace("\r", " ").replace("\n", " ").strip()
+
+
+def _epg_url():
+    server = get_setting("server_url").rstrip("/")
+    username = get_setting("username")
+    password = get_setting("password")
+
+    if not server or not username or not password:
+        return ""
+
+    return "{0}/xmltv.php?username={1}&password={2}".format(server, username, password)
 
 
 def clean_channel_name(name):
@@ -208,6 +220,7 @@ def write_live_tv_m3u():
 
 def _write_iptv_simple_instance(m3u_path):
     instance_path = _instance_settings_path()
+    epg_url = _epg_url()
 
     if os.path.exists(instance_path):
         try:
@@ -231,8 +244,9 @@ def _write_iptv_simple_instance(m3u_path):
     _set_setting(root, "defaultProviderName", IPTV_SIMPLE_INSTANCE_NAME)
     _set_setting(root, "epgPathType", "1")
     _set_setting(root, "epgPath", "")
-    _set_setting(root, "epgUrl", "")
-    _set_setting(root, "epgCache", "false")
+    _set_setting(root, "epgUrl", epg_url)
+    _set_setting(root, "epgCache", "true")
+    _set_setting(root, "epgIgnoreCaseForChannelIds", "true")
     _set_setting(root, "logoPathType", "1")
     _set_setting(root, "logoPath", "")
     _set_setting(root, "logoBaseUrl", "")
@@ -245,11 +259,17 @@ def _write_iptv_simple_instance(m3u_path):
 def _configure_legacy_settings(m3u_path):
     try:
         addon = xbmcaddon.Addon(IPTV_SIMPLE_ID)
+        epg_url = _epg_url()
         addon.setSetting("m3uPathType", "0")
         addon.setSetting("m3uPath", m3u_path)
         addon.setSetting("m3uUrl", "")
         addon.setSetting("m3uCache", "false")
         addon.setSetting("m3uRefreshMode", "0")
+        addon.setSetting("epgPathType", "1")
+        addon.setSetting("epgPath", "")
+        addon.setSetting("epgUrl", epg_url)
+        addon.setSetting("epgCache", "true")
+        addon.setSetting("epgIgnoreCaseForChannelIds", "true")
     except Exception as e:
         xbmc.log("IPTV SIMPLE LEGACY SETTINGS ERROR: " + str(e), xbmc.LOGWARNING)
 
