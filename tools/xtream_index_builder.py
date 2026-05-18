@@ -296,6 +296,32 @@ def first_value(data, keys):
     return ""
 
 
+def get_category_maps(categories):
+    names = {}
+    languages = {}
+
+    for category in categories or []:
+        category_id = category.get("category_id")
+        if category_id in (None, ""):
+            continue
+
+        key = str(category_id)
+        name = category.get("category_name", "")
+        names[key] = name
+        languages[key] = extract_language_from_category(name)
+
+    return names, languages
+
+
+def get_item_category_id(item):
+    value = item.get("category_id")
+    if value in (None, ""):
+        category_ids = item.get("category_ids") or []
+        if category_ids:
+            value = category_ids[0]
+    return value
+
+
 def get_id_key(value):
     if value is None:
         return ""
@@ -412,53 +438,49 @@ def build_language_index(language, args, server_url, username, password, output_
 
     movie_categories = client("get_vod_categories") or []
     series_categories = client("get_series_categories") or []
+    movie_category_names, movie_category_languages = get_category_maps(movie_categories)
+    series_category_names, series_category_languages = get_category_maps(series_categories)
 
-    for category in movie_categories:
-        category_name = category.get("category_name", "")
-        if extract_language_from_category(category_name) != language:
+    print("Movies: loading all streams")
+    movies = client("get_vod_streams") or []
+    for movie in movies:
+        category_id = get_item_category_id(movie)
+        if movie_category_languages.get(str(category_id)) != language:
             continue
 
-        print("Movies: {0}".format(category_name))
-        movies = client("get_vod_streams", {"category_id": category.get("category_id")}) or []
-        category_items = []
-        for movie in movies:
-            category_items.append({
-                "name": movie.get("name", ""),
-                "stream_id": movie.get("stream_id"),
-                "category_id": movie.get("category_id") or category.get("category_id"),
-                "category_name": category_name,
-                "container_extension": movie.get("container_extension", "mp4"),
-                "added": movie.get("added"),
-                "tmdb_id": first_value(movie, ["tmdb_id", "tmdb"]),
-                "stream_icon": movie.get("stream_icon"),
-                "rating": movie.get("rating"),
-                "trailer": movie.get("trailer"),
-            })
-        data["movies"].extend(category_items)
-        write_index_checkpoint(output_path, data)
+        data["movies"].append({
+            "name": movie.get("name", ""),
+            "stream_id": movie.get("stream_id"),
+            "category_id": category_id,
+            "category_name": movie_category_names.get(str(category_id), ""),
+            "container_extension": movie.get("container_extension", "mp4"),
+            "added": movie.get("added"),
+            "tmdb_id": first_value(movie, ["tmdb_id", "tmdb"]),
+            "stream_icon": movie.get("stream_icon"),
+            "rating": movie.get("rating"),
+            "trailer": movie.get("trailer"),
+        })
+    write_index_checkpoint(output_path, data)
 
-    for category in series_categories:
-        category_name = category.get("category_name", "")
-        if extract_language_from_category(category_name) != language:
+    print("Series: loading all series")
+    series = client("get_series") or []
+    for serie in series:
+        category_id = get_item_category_id(serie)
+        if series_category_languages.get(str(category_id)) != language:
             continue
 
-        print("Series: {0}".format(category_name))
-        series = client("get_series", {"category_id": category.get("category_id")}) or []
-        category_items = []
-        for serie in series:
-            category_items.append({
-                "name": serie.get("name", ""),
-                "series_id": serie.get("series_id"),
-                "category_id": serie.get("category_id") or category.get("category_id"),
-                "category_name": category_name,
-                "last_modified": serie.get("last_modified"),
-                "added": serie.get("added"),
-                "tmdb_id": first_value(serie, ["tmdb_id", "tmdb"]),
-                "cover": serie.get("cover"),
-                "rating": serie.get("rating"),
-            })
-        data["series"].extend(category_items)
-        write_index_checkpoint(output_path, data)
+        data["series"].append({
+            "name": serie.get("name", ""),
+            "series_id": serie.get("series_id"),
+            "category_id": category_id,
+            "category_name": series_category_names.get(str(category_id), ""),
+            "last_modified": serie.get("last_modified"),
+            "added": serie.get("added"),
+            "tmdb_id": first_value(serie, ["tmdb_id", "tmdb"]),
+            "cover": serie.get("cover"),
+            "rating": serie.get("rating"),
+        })
+    write_index_checkpoint(output_path, data)
 
     if not args.skip_metadata:
         print("Movies found: {0}".format(len(data["movies"])))

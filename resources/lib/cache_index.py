@@ -447,6 +447,38 @@ def first_value(data, keys, default=""):
     return default
 
 
+def get_category_maps(categories):
+    names = {}
+    languages = {}
+
+    for category in categories or []:
+        category_id = category.get("category_id")
+        if category_id in (None, ""):
+            continue
+
+        key = str(category_id)
+        name = category.get("category_name", "")
+        names[key] = name
+        languages[key] = extract_language_from_category(name)
+
+    return names, languages
+
+
+def get_item_category_id(item, fallback=None):
+    value = item.get("category_id") or fallback
+    if value in (None, ""):
+        category_ids = item.get("category_ids") or []
+        if category_ids:
+            value = category_ids[0]
+    return value
+
+
+def category_allowed(category_id, category_languages, selected_languages):
+    if not selected_languages:
+        return True
+    return category_languages.get(str(category_id)) in selected_languages
+
+
 def fetch_movie_metadata(stream_id):
     if not stream_id:
         return {}
@@ -728,74 +760,66 @@ def rebuild_basic_index(show_progress=True, notify=True):
     canceled = False
     movie_categories = xtream.api("get_vod_categories") or []
     series_categories = xtream.api("get_series_categories") or []
-    total = len(movie_categories) + len(series_categories)
-    done = 0
+    movie_category_names, movie_category_languages = get_category_maps(movie_categories)
+    series_category_names, series_category_languages = get_category_maps(series_categories)
 
-    for cat in movie_categories:
+    if progress:
+        progress.update(20, "Lade alle Filme...")
+
+    movies = xtream.api("get_vod_streams") or []
+    for m in movies:
         if progress and progress.iscanceled():
             canceled = True
             break
 
-        cname = cat.get("category_name", "")
-        lang = extract_language_from_category(cname)
-        if selected_languages and lang not in selected_languages:
-            done += 1
+        category_id = get_item_category_id(m)
+        if not category_allowed(category_id, movie_category_languages, selected_languages):
             continue
 
-        if progress and total:
-            progress.update(int(done / total * 100), "Filme: " + cname)
+        item = {
+            "name": m.get("name", ""),
+            "stream_id": m.get("stream_id"),
+            "category_id": category_id,
+            "category_name": movie_category_names.get(str(category_id), ""),
+            "container_extension": m.get("container_extension", "mp4"),
+            "added": m.get("added"),
+            "tmdb_id": first_value(m, ["tmdb_id", "tmdb"]),
+            "stream_icon": m.get("stream_icon"),
+            "rating": m.get("rating"),
+            "trailer": m.get("trailer")
+        }
+        data["movies"].append(item)
 
-        movies = xtream.api("get_vod_streams", {"category_id": cat.get("category_id")}) or []
-        for m in movies:
-            item = {
-                "name": m.get("name", ""),
-                "stream_id": m.get("stream_id"),
-                "category_id": m.get("category_id") or cat.get("category_id"),
-                "category_name": cname,
-                "container_extension": m.get("container_extension", "mp4"),
-                "added": m.get("added"),
-                "tmdb_id": first_value(m, ["tmdb_id", "tmdb"]),
-                "stream_icon": m.get("stream_icon"),
-                "rating": m.get("rating"),
-                "trailer": m.get("trailer")
-            }
-            data["movies"].append(item)
-
-        checkpoint_save_index(data)
-        done += 1
+    checkpoint_save_index(data)
 
     if not canceled:
-        for cat in series_categories:
+        if progress:
+            progress.update(60, "Lade alle Serien...")
+
+        series = xtream.api("get_series") or []
+        for s in series:
             if progress and progress.iscanceled():
                 canceled = True
                 break
 
-            cname = cat.get("category_name", "")
-            lang = extract_language_from_category(cname)
-            if selected_languages and lang not in selected_languages:
-                done += 1
+            category_id = get_item_category_id(s)
+            if not category_allowed(category_id, series_category_languages, selected_languages):
                 continue
 
-            if progress and total:
-                progress.update(int(done / total * 100), "Serien: " + cname)
+            item = {
+                "name": s.get("name", ""),
+                "series_id": s.get("series_id"),
+                "category_id": category_id,
+                "category_name": series_category_names.get(str(category_id), ""),
+                "last_modified": s.get("last_modified"),
+                "added": s.get("added"),
+                "tmdb_id": first_value(s, ["tmdb_id", "tmdb"]),
+                "cover": s.get("cover"),
+                "rating": s.get("rating")
+            }
+            data["series"].append(item)
 
-            series = xtream.api("get_series", {"category_id": cat.get("category_id")}) or []
-            for s in series:
-                item = {
-                    "name": s.get("name", ""),
-                    "series_id": s.get("series_id"),
-                    "category_id": s.get("category_id") or cat.get("category_id"),
-                    "category_name": cname,
-                    "last_modified": s.get("last_modified"),
-                    "added": s.get("added"),
-                    "tmdb_id": first_value(s, ["tmdb_id", "tmdb"]),
-                    "cover": s.get("cover"),
-                    "rating": s.get("rating")
-                }
-                data["series"].append(item)
-
-            checkpoint_save_index(data)
-            done += 1
+        checkpoint_save_index(data)
 
     if progress:
         progress.close()
