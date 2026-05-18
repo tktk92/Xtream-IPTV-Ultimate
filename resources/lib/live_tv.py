@@ -84,6 +84,7 @@ def _clean_line(value):
 
 def clean_channel_name(name):
     clean = _clean_line(name) or "Unbekannt"
+    clean = clean.replace("â”ƒ", " ").replace("┃", " ").replace("|", " ").replace("│", " ")
     language_prefixes = (
         "DE|CH|GER|DEU|GERMAN|DEUTSCH|SWISS|SCHWEIZ|"
         "AR|ARA|ARABIC|EN|ENG|ENGLISH|UK|US|"
@@ -108,7 +109,12 @@ def clean_channel_name(name):
         )
         changed = old != clean
 
+    clean = re.sub(r"\s+", " ", clean)
     return clean.strip(" -_|:.") or _clean_line(name) or "Unbekannt"
+
+
+def clean_group_name(name):
+    return clean_channel_name(name)
 
 
 def get_allowed_categories():
@@ -158,7 +164,7 @@ def build_m3u():
                 name = clean_channel_name(stream.get("name", "Unbekannt"))
                 logo = _escape_attr(stream.get("stream_icon", ""))
                 epg_id = _escape_attr(stream.get("epg_channel_id", ""))
-                group = _escape_attr(category_name)
+                group = _escape_attr(clean_group_name(category_name))
                 stream_url = _clean_line(stream.get("direct_source")) or xtream.live_url(stream_id, "ts")
 
                 lines.append(
