@@ -24,6 +24,7 @@ IPTV_SIMPLE_PROFILE = "special://profile/addon_data/" + IPTV_SIMPLE_ID
 IPTV_SIMPLE_INSTANCE_NAME = "Xtream IPTV Ultimate"
 LIVE_CHECK_WORKERS = 8
 LIVE_CHECK_TIMEOUT = 5
+PVR_DATABASE_PREFIXES = ("Epg", "TV")
 
 EPG_NAME_MAP = {
     "ARD ALPHA": "ardalpha.de",
@@ -91,6 +92,10 @@ def _m3u_path():
 
 def _iptv_simple_profile_folder():
     return ensure_folder(xbmcvfs.translatePath(IPTV_SIMPLE_PROFILE))
+
+
+def _kodi_database_folder():
+    return xbmcvfs.translatePath("special://profile/Database")
 
 
 def _instance_settings_path():
@@ -455,6 +460,73 @@ def _reload_pvr():
     xbmc.executebuiltin("StartPVRManager")
     xbmc.executebuiltin("StopPVRManager")
     xbmc.executebuiltin("StartPVRManager")
+
+
+def _delete_file(path):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            return True
+    except Exception as e:
+        xbmc.log("LIVE TV RESET DELETE ERROR: " + path + " | " + str(e), xbmc.LOGWARNING)
+
+    return False
+
+
+def _delete_matching_files(folder, predicate):
+    deleted = []
+
+    try:
+        filenames = os.listdir(folder)
+    except Exception:
+        return deleted
+
+    for filename in filenames:
+        if not predicate(filename):
+            continue
+
+        path = os.path.join(folder, filename)
+        if _delete_file(path):
+            deleted.append(filename)
+
+    return deleted
+
+
+def clear_live_tv_data():
+    xbmc.executebuiltin("StopPVRManager")
+
+    deleted = []
+    deleted.extend(_delete_matching_files(
+        _kodi_database_folder(),
+        lambda name: name.endswith(".db") and name.startswith(PVR_DATABASE_PREFIXES)
+    ))
+    deleted.extend(_delete_matching_files(
+        _iptv_simple_profile_folder(),
+        lambda name: name.startswith("xmltv") and ".cache" in name
+    ))
+
+    return deleted
+
+
+def reset_live_tv_data():
+    confirmed = xbmcgui.Dialog().yesno(
+        "Live TV zuruecksetzen",
+        "Kodi PVR- und EPG-Daten loeschen und Live-TV danach neu einrichten?\n\n"
+        "Senderliste, EPG-Datenbank und IPTV-Simple EPG-Cache werden neu aufgebaut.",
+        nolabel="Abbrechen",
+        yeslabel="Zuruecksetzen"
+    )
+    if not confirmed:
+        return
+
+    deleted = clear_live_tv_data()
+    xbmcgui.Dialog().notification(
+        "Live TV",
+        "PVR/EPG Daten geloescht: " + str(len(deleted)),
+        xbmcgui.NOTIFICATION_INFO,
+        3000
+    )
+    setup_live_tv()
 
 
 def setup_live_tv():

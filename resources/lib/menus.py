@@ -18,6 +18,7 @@ def main_menu():
     items = [
         ("Suchen & Hinzufügen", {"mode": "add_menu"}, True),
         ("Live TV einrichten", {"mode": "setup_live_tv"}, False),
+        ("Live TV Daten zuruecksetzen", {"mode": "reset_live_tv"}, False),
         ("Bibliothek verwalten", {"mode": "library_menu"}, True),
         ("Einstellungen", {"mode": "settings_menu"}, True),
     ]
