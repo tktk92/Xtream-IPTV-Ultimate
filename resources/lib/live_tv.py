@@ -26,14 +26,32 @@ LIVE_CHECK_WORKERS = 8
 LIVE_CHECK_TIMEOUT = 5
 
 EPG_NAME_MAP = {
+    "ARD ALPHA": "ardalpha.de",
+    "ARD-ALPHA": "ardalpha.de",
     "DAS ERSTE": "ard.de",
     "ARD": "ard.de",
+    "ZDF NEO": "zdfneo.de",
+    "ZDF INFO": "zdfinfo.de",
     "ZDF": "zdf.de",
+    "RTL PASSION": "rtlpassion.de",
+    "RTL CRIME": "rtlcrime.de",
+    "RTL LIVING": "rtlliving.de",
+    "RTL UP": "rtlplus.de",
+    "RTL ZWEI": "rtl2.de",
+    "RTLZWEI": "rtl2.de",
     "RTL": "rtl.de",
     "RTL II": "rtl2.de",
     "RTL2": "rtl2.de",
+    "SAT.1 EMOTIONS": "sat1emotions.de",
+    "SAT1 EMOTIONS": "sat1emotions.de",
+    "SAT.1 GOLD": "sat1gold.de",
+    "SAT1 GOLD": "sat1gold.de",
     "SAT.1": "sat1.de",
     "SAT1": "sat1.de",
+    "PROSIEBEN MAXX": "prosiebenmaxx.de",
+    "PRO7 MAXX": "prosiebenmaxx.de",
+    "PROSIEBEN FUN": "prosiebenfun.de",
+    "PRO7 FUN": "prosiebenfun.de",
     "PROSIEBEN": "pro7.de",
     "PRO7": "pro7.de",
     "VOX": "vox.de",
@@ -49,14 +67,7 @@ EPG_NAME_MAP = {
     "TAGESSCHAU24": "tagesschau24.de",
     "PHOENIX": "phoenix.de",
     "BR FERNSEHEN": "br.de",
-    "ARD-ALPHA": "ardalpha.de",
-    "RTL PASSION": "rtlpassion.de",
-    "RTL CRIME": "rtlcrime.de",
-    "RTL UP": "rtlplus.de",
     "NITRO": "rtlnitro.de",
-    "RTL LIVING": "rtlliving.de",
-    "ZDF NEO": "zdfneo.de",
-    "ZDF INFO": "zdfinfo.de",
     "DMAX": "dmax.de",
     "TELE 5": "tele5.de",
     "ANIXE": "anixe.de",
@@ -210,8 +221,12 @@ def infer_epg_id(name):
     if not normalized:
         return ""
 
-    for label in sorted(EPG_NAME_MAP.keys(), key=len, reverse=True):
+    labels = sorted(EPG_NAME_MAP.keys(), key=lambda value: len(normalize_epg_name(value)), reverse=True)
+    for label in labels:
+        normalized_label = normalize_epg_name(label)
         if normalized == label or normalized.startswith(label + " "):
+            return EPG_NAME_MAP[label]
+        if normalized == normalized_label or normalized.startswith(normalized_label + " "):
             return EPG_NAME_MAP[label]
 
     return ""
