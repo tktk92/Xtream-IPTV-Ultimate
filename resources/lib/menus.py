@@ -91,8 +91,6 @@ def settings_menu():
 def index_menu():
     items = [
         ("Index-Info anzeigen", {"mode": "show_index_info"}, False),
-        ("Basis-Index neu erstellen", {"mode": "rebuild_basic_index"}, False),
-        ("TMDb-Infos pro Gruppe aktualisieren", {"mode": "metadata_groups"}, False),
-        ("Vollindex mit allen TMDb-Infos erstellen", {"mode": "rebuild_index"}, False),
+        ("Kompakten Index lÃ¶schen und neu erstellen", {"mode": "rebuild_basic_index"}, False),
     ]
     add_directory_items(items)

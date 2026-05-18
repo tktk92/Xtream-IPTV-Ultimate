@@ -13,7 +13,7 @@ from language_filter import extract_language_from_category
 
 LEGACY_INDEX_FILE = os.path.join(ADDON_PROFILE, "xtream_index.json")
 BUNDLED_INDEX_FOLDER = os.path.join(ADDON.getAddonInfo("path"), "resources", "data")
-INDEX_VERSION = 3
+INDEX_VERSION = 4
 INDEX_MAX_AGE_SECONDS = 24 * 60 * 60
 METADATA_WORKERS = 2
 METADATA_RETRIES = 2
@@ -23,15 +23,109 @@ MOVIE_METADATA_FIELDS = ["tmdb_id", "metadata_checked_at"]
 
 SERIES_METADATA_FIELDS = ["tmdb_id", "metadata_checked_at"]
 
+MOVIE_COMPACT_KEYS = {
+    "name": "n",
+    "stream_id": "sid",
+    "category_id": "c",
+    "category_name": "cn",
+    "container_extension": "e",
+    "added": "a",
+    "tmdb_id": "tm",
+    "stream_icon": "i",
+    "rating": "r",
+    "trailer": "tr",
+    "metadata_checked_at": "mc"
+}
+
+SERIES_COMPACT_KEYS = {
+    "name": "n",
+    "series_id": "sid",
+    "category_id": "c",
+    "category_name": "cn",
+    "last_modified": "lm",
+    "added": "a",
+    "tmdb_id": "tm",
+    "cover": "i",
+    "rating": "r",
+    "metadata_checked_at": "mc"
+}
+
 
 def empty_index():
     return {
         "version": INDEX_VERSION,
         "created_at": 0,
         "signature": {},
+        "categories": {},
         "movies": [],
         "series": []
     }
+
+
+def compact_item(item, key_map):
+    compact = {}
+    for full_key, compact_key in key_map.items():
+        if full_key == "category_name" and item.get("category_id") not in (None, ""):
+            continue
+        value = item.get(full_key)
+        if value not in (None, "", []):
+            compact[compact_key] = value
+    return compact
+
+
+def expand_item(item, key_map, categories):
+    if not isinstance(item, dict):
+        return {}
+
+    reverse_map = dict((compact_key, full_key) for full_key, compact_key in key_map.items())
+    expanded = {}
+
+    for key, value in item.items():
+        expanded[reverse_map.get(key, key)] = value
+
+    category_id = expanded.get("category_id")
+    if category_id not in (None, "") and not expanded.get("category_name"):
+        expanded["category_name"] = categories.get(str(category_id), "")
+
+    return expanded
+
+
+def compact_index_data(data):
+    normalized = normalize_index_data(data)
+    categories = {}
+
+    for item in normalized.get("movies", []) + normalized.get("series", []):
+        category_id = item.get("category_id")
+        category_name = item.get("category_name")
+        if category_id not in (None, "") and category_name:
+            categories[str(category_id)] = category_name
+
+    compact = {
+        "version": INDEX_VERSION,
+        "created_at": normalized.get("created_at", 0),
+        "signature": normalized.get("signature", {}),
+        "categories": categories,
+        "movies": [compact_item(item, MOVIE_COMPACT_KEYS) for item in normalized.get("movies", [])],
+        "series": [compact_item(item, SERIES_COMPACT_KEYS) for item in normalized.get("series", [])]
+    }
+
+    return compact
+
+
+def expand_index_data(data):
+    normalized = normalize_index_data(data)
+    categories = normalized.get("categories", {})
+    if not isinstance(categories, dict):
+        categories = {}
+
+    expanded = empty_index()
+    expanded["version"] = normalized.get("version", 1)
+    expanded["created_at"] = normalized.get("created_at", 0)
+    expanded["signature"] = normalized.get("signature", {})
+    expanded["categories"] = categories
+    expanded["movies"] = [expand_item(item, MOVIE_COMPACT_KEYS, categories) for item in normalized.get("movies", [])]
+    expanded["series"] = [expand_item(item, SERIES_COMPACT_KEYS, categories) for item in normalized.get("series", [])]
+    return expanded
 
 
 def get_index_path(languages=None):
@@ -74,12 +168,39 @@ def get_bundled_index_paths(languages=None):
     return [language_path]
 
 
+def delete_index_file(path):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def delete_current_index_files():
+    deleted = False
+    for language_set in get_index_language_sets():
+        deleted = delete_index_file(get_index_path(language_set)) or deleted
+
+    deleted = delete_index_file(get_legacy_index_path()) or deleted
+    profile_path = xbmcvfs.translatePath(ADDON_PROFILE)
+    try:
+        for filename in os.listdir(profile_path):
+            if filename.startswith("xtream_index") and filename.endswith(".json"):
+                deleted = delete_index_file(os.path.join(profile_path, filename)) or deleted
+    except Exception:
+        pass
+
+    return deleted
+
+
 def load_index_file(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, dict):
-            return data
+            return expand_index_data(data)
     except Exception:
         pass
 
@@ -135,6 +256,7 @@ def normalize_index_data(data):
         return empty_index()
     data.setdefault("movies", [])
     data.setdefault("series", [])
+    data.setdefault("categories", {})
     data.setdefault("version", 1)
     data.setdefault("created_at", 0)
     data.setdefault("signature", {})
@@ -202,7 +324,7 @@ def write_index_file(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp_path = path + ".tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(compact_index_data(data), f, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp_path, path)
 
 
@@ -433,6 +555,8 @@ def enrich_items_with_metadata(items, old_metadata, id_field, fields, fetch_func
 
 
 def rebuild_index(show_progress=True, notify=True):
+    return rebuild_basic_index(show_progress=show_progress, notify=notify)
+
     if not has_credentials():
         if notify:
             xbmcgui.Dialog().ok("Index", "Bitte zuerst Xtream Zugangsdaten eintragen.")
@@ -592,16 +716,14 @@ def rebuild_basic_index(show_progress=True, notify=True):
         return False
 
     selected_languages = get_selected_languages()
-    old_index = get_index()
-    old_movie_metadata = get_old_movie_metadata_map(old_index)
-    old_series_metadata = get_old_series_metadata_map(old_index)
+    delete_current_index_files()
     data = empty_index()
-    data["created_at"] = time.time()
+    data["created_at"] = 0
     data["signature"] = get_signature()
 
     progress = xbmcgui.DialogProgress() if show_progress else None
     if progress:
-        progress.create("Basis-Index", "Lade Kategorien...")
+        progress.create("Kompakter Index", "Lade Kategorien...")
 
     canceled = False
     movie_categories = xtream.api("get_vod_categories") or []
@@ -628,11 +750,15 @@ def rebuild_basic_index(show_progress=True, notify=True):
             item = {
                 "name": m.get("name", ""),
                 "stream_id": m.get("stream_id"),
+                "category_id": m.get("category_id") or cat.get("category_id"),
                 "category_name": cname,
                 "container_extension": m.get("container_extension", "mp4"),
-                "added": m.get("added")
+                "added": m.get("added"),
+                "tmdb_id": first_value(m, ["tmdb_id", "tmdb"]),
+                "stream_icon": m.get("stream_icon"),
+                "rating": m.get("rating"),
+                "trailer": m.get("trailer")
             }
-            copy_metadata(item, old_movie_metadata.get(get_id_key(item.get("stream_id"))), MOVIE_METADATA_FIELDS)
             data["movies"].append(item)
 
         checkpoint_save_index(data)
@@ -658,11 +784,14 @@ def rebuild_basic_index(show_progress=True, notify=True):
                 item = {
                     "name": s.get("name", ""),
                     "series_id": s.get("series_id"),
+                    "category_id": s.get("category_id") or cat.get("category_id"),
                     "category_name": cname,
                     "last_modified": s.get("last_modified"),
-                    "added": s.get("added")
+                    "added": s.get("added"),
+                    "tmdb_id": first_value(s, ["tmdb_id", "tmdb"]),
+                    "cover": s.get("cover"),
+                    "rating": s.get("rating")
                 }
-                copy_metadata(item, old_series_metadata.get(get_id_key(item.get("series_id"))), SERIES_METADATA_FIELDS)
                 data["series"].append(item)
 
             checkpoint_save_index(data)
@@ -673,13 +802,14 @@ def rebuild_basic_index(show_progress=True, notify=True):
 
     if canceled:
         if notify:
-            xbmcgui.Dialog().notification("Index", "Basis-Index abgebrochen", xbmcgui.NOTIFICATION_WARNING, 3000)
+            xbmcgui.Dialog().notification("Index", "Index-Erstellung abgebrochen", xbmcgui.NOTIFICATION_WARNING, 3000)
         return False
 
+    data["created_at"] = time.time()
     save_index(data)
     if notify:
         xbmcgui.Dialog().notification(
-            "Basis-Index aktualisiert",
+            "Index neu erstellt",
             f"{len(data['movies'])} Filme, {len(data['series'])} Serien",
             xbmcgui.NOTIFICATION_INFO,
             3000
@@ -721,7 +851,7 @@ def show_index_info():
     status = "Aktuell" if stats.get("current") else "Fehlt oder veraltet"
     xbmcgui.Dialog().ok(
         "Index",
-        "Status: {0}\nSprache: {1}\nDatei: {2}\nFilme: {3} ({4} mit TMDb/Release-Info)\nSerien: {5} ({6} mit TMDb/Release-Info)\nErstellt: {7}".format(
+        "Status: {0}\nSprache: {1}\nDatei: {2}\nFilme: {3} ({4} mit TMDb-ID)\nSerien: {5} ({6} mit TMDb-ID)\nErstellt: {7}".format(
             status,
             stats.get("languages", "Alle"),
             stats.get("filename", ""),
@@ -773,7 +903,7 @@ def get_group_statuses():
         key = ("movies", name)
         groups.setdefault(key, {"media": "movies", "category_name": name, "total": 0, "checked": 0, "tmdb": 0})
         groups[key]["total"] += 1
-        if movie.get("metadata_checked_at"):
+        if movie.get("metadata_checked_at") or movie.get("tmdb_id"):
             groups[key]["checked"] += 1
         if movie.get("tmdb_id"):
             groups[key]["tmdb"] += 1
@@ -783,7 +913,7 @@ def get_group_statuses():
         key = ("series", name)
         groups.setdefault(key, {"media": "series", "category_name": name, "total": 0, "checked": 0, "tmdb": 0})
         groups[key]["total"] += 1
-        if serie.get("metadata_checked_at"):
+        if serie.get("metadata_checked_at") or serie.get("tmdb_id"):
             groups[key]["checked"] += 1
         if serie.get("tmdb_id"):
             groups[key]["tmdb"] += 1
@@ -805,7 +935,7 @@ def format_group_status(group):
 def update_metadata_group(media, category_name, show_progress=True):
     data = get_index()
     if not data.get("movies") and not data.get("series"):
-        xbmcgui.Dialog().ok("Index", "Bitte zuerst den Basis-Index erstellen.")
+        xbmcgui.Dialog().ok("Index", "Bitte zuerst den kompakten Index erstellen.")
         return False
 
     if media == "movies":
@@ -920,7 +1050,7 @@ def update_next_metadata_group(show_progress=False, notify=False):
 def show_metadata_groups():
     groups = get_group_statuses()
     if not groups:
-        xbmcgui.Dialog().ok("Index", "Keine Gruppen im Index gefunden. Bitte zuerst Basis-Index erstellen.")
+        xbmcgui.Dialog().ok("Index", "Keine Gruppen im Index gefunden. Bitte zuerst den kompakten Index erstellen.")
         return
 
     labels = [format_group_status(group) for group in groups]

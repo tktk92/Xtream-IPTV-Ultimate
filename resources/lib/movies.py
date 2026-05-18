@@ -12,9 +12,7 @@ from language_filter import extract_language_from_category
 from strm import write_movie, write_strm_file, clean_filename, get_movie_folder
 from movie_lookup import (
     choose_movie_title,
-    auto_movie_title,
     get_tmdb_api_key,
-    prepare_movie_search_title,
     title_from_tmdb_id,
     discover_recent_movies,
     search_tmdb_movie_fuzzy,
@@ -206,11 +204,6 @@ def get_selected_tmdb_language_codes():
     return codes
 
 
-def normalize_movie_match_title(title):
-    prepared = prepare_movie_search_title(title)
-    return clean_filename(prepared or title).lower()
-
-
 def get_index_movie_by_stream_id(stream_id):
     if not stream_id:
         return None
@@ -241,7 +234,7 @@ def get_movie_export_title(movie):
     if tmdb_id:
         return title_from_tmdb_id(tmdb_id, name)
 
-    return auto_movie_title(name)
+    return clean_filename(name)
 
 
 def choose_movie_export_title(stream_id, name):
@@ -255,7 +248,7 @@ def choose_movie_export_title(stream_id, name):
 def get_xtream_movie_candidates(selected_languages):
     data = cache_index.get_current_index_for_search()
     wanted = set(selected_languages or [])
-    candidates = []
+    candidates_by_tmdb_id = {}
 
     for movie in data.get("movies", []):
         category_name = movie.get("category_name", "")
@@ -264,48 +257,16 @@ def get_xtream_movie_candidates(selected_languages):
         if wanted and language not in wanted:
             continue
 
-        item = dict(movie)
-        item["match_title"] = normalize_movie_match_title(item.get("name", ""))
-        if item["match_title"]:
-            candidates.append(item)
+        tmdb_id = str(movie.get("tmdb_id") or "")
+        if tmdb_id and tmdb_id not in candidates_by_tmdb_id:
+            candidates_by_tmdb_id[tmdb_id] = movie
 
-    return candidates
+    return candidates_by_tmdb_id
 
 
-def find_xtream_match_for_tmdb(tmdb_movie, xtream_candidates):
+def find_xtream_match_for_tmdb(tmdb_movie, xtream_candidates_by_tmdb_id):
     tmdb_id = str(tmdb_movie.get("id") or "")
-    if tmdb_id:
-        for candidate in xtream_candidates:
-            if str(candidate.get("tmdb_id") or "") == tmdb_id:
-                return candidate
-
-    titles = [
-        tmdb_movie.get("title", ""),
-        tmdb_movie.get("original_title", "")
-    ]
-    normalized_titles = []
-
-    for title in titles:
-        normalized = normalize_movie_match_title(title)
-        if normalized and normalized not in normalized_titles:
-            normalized_titles.append(normalized)
-
-    for normalized in normalized_titles:
-        for candidate in xtream_candidates:
-            if candidate.get("match_title") == normalized:
-                return candidate
-
-    for normalized in normalized_titles:
-        if len(normalized) < 5:
-            continue
-        for candidate in xtream_candidates:
-            candidate_title = candidate.get("match_title", "")
-            if len(candidate_title) < 5:
-                continue
-            if normalized in candidate_title or candidate_title in normalized:
-                return candidate
-
-    return None
+    return xtream_candidates_by_tmdb_id.get(tmdb_id)
 
 
 def reset_tmdb_recent_folder():

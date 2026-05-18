@@ -19,11 +19,38 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-INDEX_VERSION = 3
+INDEX_VERSION = 4
 MAX_METADATA_WORKERS = 2
 DEFAULT_METADATA_WORKERS = 1
 DEFAULT_DELAY_SECONDS = 0.35
 DEFAULT_RETRIES = 3
+
+MOVIE_COMPACT_KEYS = {
+    "name": "n",
+    "stream_id": "sid",
+    "category_id": "c",
+    "category_name": "cn",
+    "container_extension": "e",
+    "added": "a",
+    "tmdb_id": "tm",
+    "stream_icon": "i",
+    "rating": "r",
+    "trailer": "tr",
+    "metadata_checked_at": "mc",
+}
+
+SERIES_COMPACT_KEYS = {
+    "name": "n",
+    "series_id": "sid",
+    "category_id": "c",
+    "category_name": "cn",
+    "last_modified": "lm",
+    "added": "a",
+    "tmdb_id": "tm",
+    "cover": "i",
+    "rating": "r",
+    "metadata_checked_at": "mc",
+}
 
 ADDON_ID = "plugin.video.xtream.strm"
 
@@ -118,8 +145,62 @@ def empty_index(server_url, language):
             "server_url": server_url.rstrip("/"),
             "languages": [language],
         },
+        "categories": {},
         "movies": [],
         "series": [],
+    }
+
+
+def compact_item(item, key_map):
+    compact = {}
+    for full_key, compact_key in key_map.items():
+        if full_key == "category_name" and item.get("category_id") not in (None, ""):
+            continue
+        value = item.get(full_key)
+        if value not in (None, "", []):
+            compact[compact_key] = value
+    return compact
+
+
+def expand_item(item, key_map, categories):
+    reverse_map = dict((compact_key, full_key) for full_key, compact_key in key_map.items())
+    expanded = {}
+
+    for key, value in item.items():
+        expanded[reverse_map.get(key, key)] = value
+
+    category_id = expanded.get("category_id")
+    if category_id not in (None, "") and not expanded.get("category_name"):
+        expanded["category_name"] = categories.get(str(category_id), "")
+
+    return expanded
+
+
+def expand_index_data(data):
+    categories = data.get("categories", {}) if isinstance(data, dict) else {}
+    if not isinstance(categories, dict):
+        categories = {}
+
+    data["movies"] = [expand_item(item, MOVIE_COMPACT_KEYS, categories) for item in data.get("movies", [])]
+    data["series"] = [expand_item(item, SERIES_COMPACT_KEYS, categories) for item in data.get("series", [])]
+    return data
+
+
+def compact_index_data(data):
+    categories = {}
+    for item in data.get("movies", []) + data.get("series", []):
+        category_id = item.get("category_id")
+        category_name = item.get("category_name")
+        if category_id not in (None, "") and category_name:
+            categories[str(category_id)] = category_name
+
+    return {
+        "version": INDEX_VERSION,
+        "created_at": data.get("created_at", time.time()),
+        "signature": data.get("signature", {}),
+        "categories": categories,
+        "movies": [compact_item(item, MOVIE_COMPACT_KEYS) for item in data.get("movies", [])],
+        "series": [compact_item(item, SERIES_COMPACT_KEYS) for item in data.get("series", [])],
     }
 
 
@@ -227,7 +308,7 @@ def load_old_metadata(path):
 
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
+            data = expand_index_data(json.load(handle))
     except Exception:
         return {}, {}
 
@@ -249,7 +330,7 @@ def write_index_checkpoint(path, data):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp_path = path + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
+            json.dump(compact_index_data(data), handle, ensure_ascii=False, separators=(",", ":"))
         os.replace(tmp_path, path)
     except Exception as exc:
         print("Checkpoint failed: {0}".format(exc))
@@ -290,6 +371,8 @@ def enrich_missing(items, id_field, old_metadata, fetch_func, workers, delay_sec
     fetched = 0
 
     for item in items:
+        if item.get("tmdb_id"):
+            continue
         if copy_metadata(item, old_metadata.get(get_id_key(item.get(id_field)))):
             continue
         pending.append(item)
@@ -342,9 +425,14 @@ def build_language_index(language, args, server_url, username, password, output_
             category_items.append({
                 "name": movie.get("name", ""),
                 "stream_id": movie.get("stream_id"),
+                "category_id": movie.get("category_id") or category.get("category_id"),
                 "category_name": category_name,
                 "container_extension": movie.get("container_extension", "mp4"),
                 "added": movie.get("added"),
+                "tmdb_id": first_value(movie, ["tmdb_id", "tmdb"]),
+                "stream_icon": movie.get("stream_icon"),
+                "rating": movie.get("rating"),
+                "trailer": movie.get("trailer"),
             })
         data["movies"].extend(category_items)
         write_index_checkpoint(output_path, data)
@@ -361,9 +449,13 @@ def build_language_index(language, args, server_url, username, password, output_
             category_items.append({
                 "name": serie.get("name", ""),
                 "series_id": serie.get("series_id"),
+                "category_id": serie.get("category_id") or category.get("category_id"),
                 "category_name": category_name,
                 "last_modified": serie.get("last_modified"),
                 "added": serie.get("added"),
+                "tmdb_id": first_value(serie, ["tmdb_id", "tmdb"]),
+                "cover": serie.get("cover"),
+                "rating": serie.get("rating"),
             })
         data["series"].extend(category_items)
         write_index_checkpoint(output_path, data)
