@@ -85,8 +85,9 @@ def _clean_line(value):
 def clean_channel_name(name):
     clean = _clean_line(name) or "Unbekannt"
     clean = clean.replace("â”ƒ", " ").replace("┃", " ").replace("|", " ").replace("│", " ")
+    clean = clean.replace("âº", " ").replace("►", " ")
     language_prefixes = (
-        "DE|CH|GER|DEU|GERMAN|DEUTSCH|SWISS|SCHWEIZ|"
+        "DE|CH|GER|DEU|GERMAN|GERMANY|DEUTSCH|SWISS|SCHWEIZ|"
         "AR|ARA|ARABIC|EN|ENG|ENGLISH|UK|US|"
         "FR|FRENCH|ES|SPANISH|IT|ITALIAN|TR|TURKISH|"
         "IN|HI|HINDI|TA|TAM|TAMIL|RU|AL|EXYU|YU|MULTI"
@@ -103,6 +104,12 @@ def clean_channel_name(name):
         )
         clean = re.sub(
             r'^\s*[\[\(\{]\s*(' + language_prefixes + r')\s*[\]\)\}]\s*',
+            "",
+            clean,
+            flags=re.IGNORECASE
+        )
+        clean = re.sub(
+            r'^\s*(' + language_prefixes + r')\b\s+',
             "",
             clean,
             flags=re.IGNORECASE
