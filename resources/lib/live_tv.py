@@ -25,6 +25,8 @@ IPTV_SIMPLE_INSTANCE_NAME = "Xtream IPTV Ultimate"
 LIVE_CHECK_WORKERS = 8
 LIVE_CHECK_TIMEOUT = 5
 PVR_DATABASE_PREFIXES = ("Epg", "TV")
+LIVE_TV_DELETE_RETRIES = 20
+LIVE_TV_DELETE_RETRY_SLEEP_MS = 500
 
 EPG_NAME_MAP = {
     "ARD ALPHA": "ardalpha.de",
@@ -463,12 +465,19 @@ def _reload_pvr():
 
 
 def _delete_file(path):
-    try:
-        if os.path.exists(path):
+    for attempt in range(LIVE_TV_DELETE_RETRIES):
+        try:
+            if not os.path.exists(path):
+                return False
+
             os.remove(path)
             return True
-    except Exception as e:
-        xbmc.log("LIVE TV RESET DELETE ERROR: " + path + " | " + str(e), xbmc.LOGWARNING)
+        except Exception as e:
+            if attempt >= LIVE_TV_DELETE_RETRIES - 1:
+                xbmc.log("LIVE TV RESET DELETE ERROR: " + path + " | " + str(e), xbmc.LOGWARNING)
+                break
+
+            xbmc.sleep(LIVE_TV_DELETE_RETRY_SLEEP_MS)
 
     return False
 
@@ -494,6 +503,7 @@ def _delete_matching_files(folder, predicate):
 
 def clear_live_tv_data():
     xbmc.executebuiltin("StopPVRManager")
+    xbmc.sleep(1500)
 
     deleted = []
     deleted.extend(_delete_matching_files(
