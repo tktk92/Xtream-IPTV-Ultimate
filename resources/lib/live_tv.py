@@ -121,7 +121,10 @@ def clean_channel_name(name):
 
 
 def clean_group_name(name):
-    return clean_channel_name(name)
+    clean = clean_channel_name(name)
+    clean = re.sub(r"\bZUR[ÜU]CKBLICKEN\b", "Replay", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"\s+", " ", clean)
+    return clean.strip(" -_|:.") or clean_channel_name(name)
 
 
 def get_allowed_categories():
