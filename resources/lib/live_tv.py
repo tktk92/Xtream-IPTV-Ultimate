@@ -468,10 +468,10 @@ def _delete_file(path):
     for attempt in range(LIVE_TV_DELETE_RETRIES):
         try:
             if not os.path.exists(path):
-                return False
+                return False, False
 
             os.remove(path)
-            return True
+            return True, False
         except Exception as e:
             if attempt >= LIVE_TV_DELETE_RETRIES - 1:
                 xbmc.log("LIVE TV RESET DELETE ERROR: " + path + " | " + str(e), xbmc.LOGWARNING)
@@ -479,26 +479,30 @@ def _delete_file(path):
 
             xbmc.sleep(LIVE_TV_DELETE_RETRY_SLEEP_MS)
 
-    return False
+    return False, True
 
 
 def _delete_matching_files(folder, predicate):
     deleted = []
+    failed = []
 
     try:
         filenames = os.listdir(folder)
     except Exception:
-        return deleted
+        return deleted, failed
 
     for filename in filenames:
         if not predicate(filename):
             continue
 
         path = os.path.join(folder, filename)
-        if _delete_file(path):
+        removed, blocked = _delete_file(path)
+        if removed:
             deleted.append(filename)
+        elif blocked:
+            failed.append(filename)
 
-    return deleted
+    return deleted, failed
 
 
 def clear_live_tv_data():
@@ -506,22 +510,29 @@ def clear_live_tv_data():
     xbmc.sleep(1500)
 
     deleted = []
-    deleted.extend(_delete_matching_files(
+    failed = []
+    removed, blocked = _delete_matching_files(
         _kodi_database_folder(),
         lambda name: name.endswith(".db") and name.startswith(PVR_DATABASE_PREFIXES)
-    ))
-    deleted.extend(_delete_matching_files(
+    )
+    deleted.extend(removed)
+    failed.extend(blocked)
+
+    removed, blocked = _delete_matching_files(
         _iptv_simple_profile_folder(),
         lambda name: name.startswith("xmltv") and ".cache" in name
-    ))
+    )
+    deleted.extend(removed)
+    failed.extend(blocked)
 
-    return deleted
+    return deleted, failed
 
 
 def setup_live_tv(reset_data=False):
     deleted = []
+    failed = []
     if reset_data:
-        deleted = clear_live_tv_data()
+        deleted, failed = clear_live_tv_data()
 
     m3u_path, total, skipped = write_live_tv_m3u()
     if not m3u_path:
@@ -534,5 +545,18 @@ def setup_live_tv(reset_data=False):
 
     xbmcgui.Dialog().ok(
         "Live TV",
-        "Live TV wurde eingerichtet.\n\nSender: {0}\nAusgelassen: {1}\nPVR/EPG Daten geloescht: {2}\n\nFalls Kodi die Sender nicht sofort zeigt, Kodi einmal neu starten.".format(total, skipped, len(deleted))
+        "Live TV wurde eingerichtet.\n\n"
+        "Sender: {0}\n"
+        "Ausgelassen: {1}\n"
+        "PVR/EPG Daten geloescht: {2}\n"
+        "Nicht geloescht: {3}\n\n"
+        "{4}".format(
+            total,
+            skipped,
+            ", ".join(deleted) if deleted else "keine",
+            ", ".join(failed) if failed else "keine",
+            "Falls Dateien nicht geloescht wurden, Kodi neu starten und erneut Live TV einrichten."
+            if failed else
+            "PVR/EPG Daten wurden erfolgreich zurueckgesetzt."
+        )
     )
