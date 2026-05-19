@@ -15,6 +15,7 @@ import storage
 import stream_check
 import settings_helper
 import cache_index
+import appearance
 from strm import ensure_media_folders
 
 
@@ -48,6 +49,9 @@ def router():
 
     elif mode == "choose_languages":
         settings_helper.choose_languages()
+
+    elif mode == "install_arctic_zephyr_reloaded":
+        appearance.install_arctic_zephyr_reloaded()
 
     elif mode == "movies_menu":
         movies.menu()
