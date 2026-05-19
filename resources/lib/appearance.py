@@ -15,7 +15,7 @@ ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
 ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
 
-MAINMENU_HIDDEN_DEFAULT_IDS = ("music", "pictures")
+MAINMENU_HIDDEN_DEFAULT_IDS = ("music", "pictures", "programs")
 
 MOVIE_WIDGETS = (
     {
@@ -65,6 +65,19 @@ TV_WIDGETS = (
         "path": "special://skin/extras/playlists/NewShows.xsp",
         "target": "video",
         "aspect": "Poster",
+    },
+)
+
+SETTINGS_WIDGETS = (
+    {
+        "label_id": "settings",
+        "suffix": "",
+        "name": "Xtream IPTV Ultimate",
+        "widget": "addon",
+        "path": "plugin://plugin.video.xtream.strm/",
+        "target": "video",
+        "aspect": "Square",
+        "type": "video",
     },
 )
 
@@ -203,7 +216,7 @@ def _configure_widgets():
     properties_path = _skinshortcuts_profile_path("%s.properties" % ARCTIC_ZEPHYR_RELOADED_ID)
     properties = _load_json_list(properties_path)
 
-    for widget in MOVIE_WIDGETS + TV_WIDGETS:
+    for widget in MOVIE_WIDGETS + TV_WIDGETS + SETTINGS_WIDGETS:
         label_id = widget["label_id"]
         suffix = widget["suffix"]
         if suffix:
@@ -214,7 +227,10 @@ def _configure_widgets():
         _set_shortcut_property(properties, label_id, "widgetPath%s" % suffix, widget["path"])
         _set_shortcut_property(properties, label_id, "widgetTarget%s" % suffix, widget["target"])
         _set_shortcut_property(properties, label_id, "widgetaspect%s" % suffix, widget["aspect"])
-        _set_shortcut_property(properties, label_id, "widgetType%s" % suffix, "movies" if label_id == "20342" else "tvshows")
+        widget_type = widget.get("type")
+        if widget_type is None:
+            widget_type = "movies" if label_id == "20342" else "tvshows"
+        _set_shortcut_property(properties, label_id, "widgetType%s" % suffix, widget_type)
 
     _save_json_list(properties_path, properties)
 
@@ -231,8 +247,8 @@ def configure_arctic_zephyr_reloaded():
 
     confirm = dialog.yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
-        "Musik und Bilder werden im Hauptmenue ausgeblendet.",
-        "Filme bekommen zwei Widgets, Serien bekommen drei Widgets.",
+        "Musik, Bilder und Programme werden im Hauptmenue ausgeblendet.",
+        "Filme, Serien und Einstellungen bekommen passende Widgets.",
         "Fortfahren?",
     )
     if not confirm:

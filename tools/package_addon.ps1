@@ -33,7 +33,7 @@ if (Test-Path -LiteralPath $zipPath) {
 
 $archive = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
-    foreach ($fileName in @("addon.xml", "default.py", "service.py", "README.md")) {
+    foreach ($fileName in @("addon.xml", "default.py", "service.py", "README.md", "icon.png")) {
         $source = Join-Path $addonRoot $fileName
         if (Test-Path -LiteralPath $source) {
             Add-ZipEntry -Archive $archive -SourcePath $source -EntryName "$addonId/$fileName"

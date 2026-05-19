@@ -1,15 +1,60 @@
 # -*- coding: utf-8 -*-
 
+import os
+
 import xbmcgui
 import xbmcplugin
 
-from common import HANDLE, build_url
+from common import ADDON, HANDLE, build_url
 from config import get_selected_languages
+
+
+MEDIA_PATH = os.path.join(ADDON.getAddonInfo("path"), "resources", "media")
+
+MODE_ICONS = {
+    "add_menu": "search.png",
+    "setup_live_tv": "live-tv.png",
+    "library_menu": "library.png",
+    "settings_menu": "settings.png",
+    "choose_languages": "language.png",
+    "movies_menu": "movies.png",
+    "series_menu": "series.png",
+    "library_series": "series.png",
+    "library_movies": "movies.png",
+    "delete_all_streams": "delete.png",
+    "stream_check_menu": "check.png",
+    "kodi_library_menu": "kodi.png",
+    "storage_menu": "storage.png",
+    "index_menu": "index.png",
+    "clean_and_scan_library": "refresh.png",
+    "setup_sources": "folder.png",
+    "setup_library_content": "library.png",
+    "install_metadata_scrapers": "scraper.png",
+    "check_streams": "check.png",
+    "show_broken_streams": "warning.png",
+    "show_series_path": "folder.png",
+    "show_movie_path": "folder.png",
+    "show_internal_paths": "storage.png",
+    "show_free_space": "storage.png",
+    "setup_wizard": "wizard.png",
+    "open_settings": "credentials.png",
+    "install_arctic_zephyr_reloaded": "skin.png",
+    "configure_arctic_zephyr_reloaded": "layout.png",
+    "show_index_info": "info.png",
+    "rebuild_basic_index": "refresh.png",
+}
+
+
+def _icon_path(params):
+    icon_name = MODE_ICONS.get(params.get("mode"), "icon.png")
+    return os.path.join(MEDIA_PATH, icon_name)
 
 
 def add_directory_items(items):
     for label, params, is_folder in items:
         li = xbmcgui.ListItem(label)
+        icon = _icon_path(params)
+        li.setArt({"icon": icon, "thumb": icon})
         xbmcplugin.addDirectoryItem(HANDLE, build_url(params), li, is_folder)
     xbmcplugin.endOfDirectory(HANDLE)
 
