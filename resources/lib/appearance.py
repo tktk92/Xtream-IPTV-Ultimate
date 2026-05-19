@@ -42,18 +42,27 @@ TV_WIDGETS = (
     {
         "label_id": "tvshows",
         "suffix": "",
-        "name": "Neue Serien",
-        "widget": "NewTvShows",
-        "path": "special://skin/extras/playlists/NewShows.xsp",
+        "name": "Serien fortsetzen",
+        "widget": "InProgress",
+        "path": "special://skin/extras/playlists/InProgressTvShows.xsp",
         "target": "video",
         "aspect": "Poster",
     },
     {
         "label_id": "tvshows",
         "suffix": ".2",
-        "name": "Neue Episoden",
-        "widget": "NewEpisodes",
-        "path": "special://skin/extras/playlists/NewEpisodes.xsp",
+        "name": "Naechste Folgen",
+        "widget": "InProgressEpisodes",
+        "path": "special://skin/extras/playlists/InProgressEpisodes.xsp",
+        "target": "video",
+        "aspect": "Poster",
+    },
+    {
+        "label_id": "tvshows",
+        "suffix": ".3",
+        "name": "Neue Serien",
+        "widget": "NewTvShows",
+        "path": "special://skin/extras/playlists/NewShows.xsp",
         "target": "video",
         "aspect": "Poster",
     },
@@ -223,7 +232,7 @@ def configure_arctic_zephyr_reloaded():
     confirm = dialog.yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Musik und Bilder werden im Hauptmenue ausgeblendet.",
-        "Filme und Serien bekommen jeweils zwei Widgets.",
+        "Filme bekommen zwei Widgets, Serien bekommen drei Widgets.",
         "Fortfahren?",
     )
     if not confirm:
