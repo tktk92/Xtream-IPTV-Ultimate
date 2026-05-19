@@ -15,7 +15,7 @@ ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
 ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
 
-MAINMENU_HIDDEN_DEFAULT_IDS = ("music", "pictures", "programs")
+MAINMENU_ALLOWED_DEFAULT_IDS = ("movies", "tvshows", "settings", "power")
 
 MOVIE_WIDGETS = (
     {
@@ -206,7 +206,11 @@ def _configure_mainmenu_visibility():
 
     for shortcut in root.findall("shortcut"):
         default_id = shortcut.findtext("defaultID")
-        if default_id in MAINMENU_HIDDEN_DEFAULT_IDS and shortcut.find("disabled") is None:
+        disabled = shortcut.find("disabled")
+        if default_id in MAINMENU_ALLOWED_DEFAULT_IDS:
+            if disabled is not None:
+                shortcut.remove(disabled)
+        elif disabled is None:
             ET.SubElement(shortcut, "disabled").text = "True"
 
     _write_xml(user_path, root)
@@ -215,6 +219,15 @@ def _configure_mainmenu_visibility():
 def _configure_widgets():
     properties_path = _skinshortcuts_profile_path("%s.properties" % ARCTIC_ZEPHYR_RELOADED_ID)
     properties = _load_json_list(properties_path)
+    properties = [
+        item for item in properties
+        if not (
+            len(item) >= 3
+            and item[0] == "mainmenu"
+            and item[1] == "33060"
+            and item[2].startswith("widget")
+        )
+    ]
 
     for widget in MOVIE_WIDGETS + TV_WIDGETS + SETTINGS_WIDGETS:
         label_id = widget["label_id"]
@@ -247,8 +260,8 @@ def configure_arctic_zephyr_reloaded():
 
     confirm = dialog.yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
-        "Musik, Bilder und Programme werden im Hauptmenue ausgeblendet.",
-        "Filme, Serien und Einstellungen bekommen passende Widgets.",
+        "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.",
+        "Filme, Serien und Einstellungen bekommen passende Widgets. Power bleibt ohne Widget.",
         "Fortfahren?",
     )
     if not confirm:
