@@ -4,6 +4,7 @@ import sys
 import urllib.parse
 
 import xbmcgui
+import xbmcplugin
 
 import menus
 import movies
@@ -17,6 +18,7 @@ import settings_helper
 import cache_index
 import appearance
 from strm import ensure_media_folders
+from common import HANDLE
 
 
 def router():
@@ -49,6 +51,9 @@ def router():
 
     elif mode == "choose_languages":
         settings_helper.choose_languages()
+
+    elif mode == "empty_widget":
+        xbmcplugin.endOfDirectory(HANDLE)
 
     elif mode == "install_arctic_zephyr_reloaded":
         appearance.install_arctic_zephyr_reloaded()

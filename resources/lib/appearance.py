@@ -81,6 +81,19 @@ SETTINGS_WIDGETS = (
     },
 )
 
+POWER_WIDGETS = (
+    {
+        "label_id": "33060",
+        "suffix": "",
+        "name": "",
+        "widget": "custom",
+        "path": "plugin://plugin.video.xtream.strm/?mode=empty_widget",
+        "target": "video",
+        "aspect": "Square",
+        "type": "video",
+    },
+)
+
 
 def _is_addon_installed(addon_id):
     return xbmc.getCondVisibility("System.HasAddon(%s)" % addon_id)
@@ -229,7 +242,7 @@ def _configure_widgets():
         )
     ]
 
-    for widget in MOVIE_WIDGETS + TV_WIDGETS + SETTINGS_WIDGETS:
+    for widget in MOVIE_WIDGETS + TV_WIDGETS + SETTINGS_WIDGETS + POWER_WIDGETS:
         label_id = widget["label_id"]
         suffix = widget["suffix"]
         if suffix:
