@@ -85,6 +85,7 @@ def settings_menu():
         ("IPTV Zugangsdaten", {"mode": "open_settings"}, False),
         ("Speicherpfade", {"mode": "open_settings"}, False),
         ("Arctic: Zephyr - Reloaded installieren", {"mode": "install_arctic_zephyr_reloaded"}, False),
+        ("Arctic: Zephyr - Reloaded einrichten", {"mode": "configure_arctic_zephyr_reloaded"}, False),
     ]
     add_directory_items(items)
 

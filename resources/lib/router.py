@@ -53,6 +53,9 @@ def router():
     elif mode == "install_arctic_zephyr_reloaded":
         appearance.install_arctic_zephyr_reloaded()
 
+    elif mode == "configure_arctic_zephyr_reloaded":
+        appearance.configure_arctic_zephyr_reloaded()
+
     elif mode == "movies_menu":
         movies.menu()
 

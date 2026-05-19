@@ -1,15 +1,63 @@
 # -*- coding: utf-8 -*-
 
 import json
+import os
 import time
+import xml.etree.ElementTree as ET
 
 import xbmc
 import xbmcaddon
 import xbmcgui
+import xbmcvfs
 
 
 ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
 ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
+SKINSHORTCUTS_ID = "script.skinshortcuts"
+
+MAINMENU_HIDDEN_DEFAULT_IDS = ("music", "pictures")
+
+MOVIE_WIDGETS = (
+    {
+        "label_id": "20342",
+        "suffix": "",
+        "name": "Neue Filme",
+        "widget": "NewMovies",
+        "path": "special://skin/extras/playlists/NewMovies.xsp",
+        "target": "video",
+        "aspect": "Poster",
+    },
+    {
+        "label_id": "20342",
+        "suffix": ".2",
+        "name": "Filme fortsetzen",
+        "widget": "InProgressMovies",
+        "path": "special://skin/extras/playlists/InProgressMovies.xsp",
+        "target": "video",
+        "aspect": "Poster",
+    },
+)
+
+TV_WIDGETS = (
+    {
+        "label_id": "tvshows",
+        "suffix": "",
+        "name": "Neue Serien",
+        "widget": "NewTvShows",
+        "path": "special://skin/extras/playlists/NewShows.xsp",
+        "target": "video",
+        "aspect": "Poster",
+    },
+    {
+        "label_id": "tvshows",
+        "suffix": ".2",
+        "name": "Neue Episoden",
+        "widget": "NewEpisodes",
+        "path": "special://skin/extras/playlists/NewEpisodes.xsp",
+        "target": "video",
+        "aspect": "Poster",
+    },
+)
 
 
 def _is_addon_installed(addon_id):
@@ -61,6 +109,147 @@ def _open_skin_settings():
     xbmc.executebuiltin("ActivateWindow(interfacesettings)")
     xbmc.sleep(500)
     xbmc.executebuiltin("SetFocus(30)")
+
+
+def _translate(path):
+    return xbmcvfs.translatePath(path)
+
+
+def _ensure_parent(path):
+    parent = os.path.dirname(path)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+
+
+def _read_text(path):
+    with open(path, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def _write_text(path, text):
+    _ensure_parent(path)
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
+def _write_xml(path, root):
+    _ensure_parent(path)
+    tree = ET.ElementTree(root)
+    try:
+        ET.indent(tree, space="    ")
+    except AttributeError:
+        pass
+    tree.write(path, encoding="UTF-8", xml_declaration=True)
+
+
+def _skinshortcuts_profile_path(filename):
+    return _translate("special://profile/addon_data/%s/%s" % (SKINSHORTCUTS_ID, filename))
+
+
+def _skin_default_mainmenu_path():
+    return _translate("special://home/addons/%s/shortcuts/mainmenu.DATA.xml" % ARCTIC_ZEPHYR_RELOADED_ID)
+
+
+def _load_json_list(path):
+    if not os.path.exists(path):
+        return []
+    try:
+        data = json.loads(_read_text(path))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_json_list(path, data):
+    _write_text(path, json.dumps(data, indent=4))
+
+
+def _set_shortcut_property(properties, label_id, name, value, group="mainmenu"):
+    properties[:] = [
+        item for item in properties
+        if not (
+            len(item) >= 4
+            and item[0] == group
+            and item[1] == label_id
+            and item[2] == name
+        )
+    ]
+    properties.append([group, label_id, name, value])
+
+
+def _configure_mainmenu_visibility():
+    user_path = _skinshortcuts_profile_path("mainmenu.DATA.xml")
+    source_path = user_path if os.path.exists(user_path) else _skin_default_mainmenu_path()
+    root = ET.parse(source_path).getroot()
+
+    for shortcut in root.findall("shortcut"):
+        default_id = shortcut.findtext("defaultID")
+        if default_id in MAINMENU_HIDDEN_DEFAULT_IDS and shortcut.find("disabled") is None:
+            ET.SubElement(shortcut, "disabled").text = "True"
+
+    _write_xml(user_path, root)
+
+
+def _configure_widgets():
+    properties_path = _skinshortcuts_profile_path("%s.properties" % ARCTIC_ZEPHYR_RELOADED_ID)
+    properties = _load_json_list(properties_path)
+
+    for widget in MOVIE_WIDGETS + TV_WIDGETS:
+        label_id = widget["label_id"]
+        suffix = widget["suffix"]
+        if suffix:
+            _set_shortcut_property(properties, label_id, "widgetEnable%s" % suffix, "yes")
+
+        _set_shortcut_property(properties, label_id, "widget%s" % suffix, widget["widget"])
+        _set_shortcut_property(properties, label_id, "widgetName%s" % suffix, widget["name"])
+        _set_shortcut_property(properties, label_id, "widgetPath%s" % suffix, widget["path"])
+        _set_shortcut_property(properties, label_id, "widgetTarget%s" % suffix, widget["target"])
+        _set_shortcut_property(properties, label_id, "widgetaspect%s" % suffix, widget["aspect"])
+        _set_shortcut_property(properties, label_id, "widgetType%s" % suffix, "movies" if label_id == "20342" else "tvshows")
+
+    _save_json_list(properties_path, properties)
+
+
+def configure_arctic_zephyr_reloaded():
+    dialog = xbmcgui.Dialog()
+
+    if not _is_addon_installed(ARCTIC_ZEPHYR_RELOADED_ID):
+        dialog.ok(
+            ARCTIC_ZEPHYR_RELOADED_NAME,
+            "Bitte installiere den Skin zuerst ueber den Arctic-Zephyr-Menuepunkt.",
+        )
+        return
+
+    confirm = dialog.yesno(
+        ARCTIC_ZEPHYR_RELOADED_NAME,
+        "Musik und Bilder werden im Hauptmenue ausgeblendet.",
+        "Filme und Serien bekommen jeweils zwei Widgets.",
+        "Fortfahren?",
+    )
+    if not confirm:
+        return
+
+    try:
+        _configure_mainmenu_visibility()
+        _configure_widgets()
+        xbmcgui.Window(10000).setProperty("skinshortcuts-reloadmainmenu", "True")
+        xbmc.executebuiltin(
+            "RunScript(script.skinshortcuts,type=buildxml&mainmenuID=300&group=mainmenu|x1111|x1112|x1113|x1114|x1115|x1116|x1117|x1118|x1119|powermenu&levels=6)",
+            True,
+        )
+        xbmc.executebuiltin("ReloadSkin()")
+        dialog.notification(
+            ARCTIC_ZEPHYR_RELOADED_NAME,
+            "Hauptmenue und Widgets gesetzt",
+            xbmcgui.NOTIFICATION_INFO,
+            5000,
+        )
+    except Exception as exc:
+        dialog.ok(
+            ARCTIC_ZEPHYR_RELOADED_NAME,
+            "Die Skin-Konfiguration konnte nicht geschrieben werden.",
+            str(exc),
+        )
 
 
 def install_arctic_zephyr_reloaded():
