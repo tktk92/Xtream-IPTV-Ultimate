@@ -18,7 +18,7 @@ from movie_lookup import (
     search_tmdb_movie_fuzzy,
     format_tmdb_search_label
 )
-from kodi_library import ask_clean_and_scan_after_export
+from kodi_library import scan_kodi_library_after_export
 import xtream
 import cache_index
 
@@ -427,7 +427,7 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
         )
 
     if created > 0:
-        ask_clean_and_scan_after_export()
+        scan_kodi_library_after_export()
 
 
 def add_movie_item(movie, category_name):
@@ -574,7 +574,7 @@ def export_movie(stream_id, name, ext, category_name):
             xbmcgui.NOTIFICATION_INFO,
             5000
         )
-        ask_clean_and_scan_after_export()
+        scan_kodi_library_after_export()
 
 
 def export_category(category_id, category_name):
@@ -637,4 +637,4 @@ def export_category(category_id, category_name):
         xbmcgui.Dialog().notification("Export fertig", f"{created} STRM Dateien erstellt", xbmcgui.NOTIFICATION_INFO, 5000)
 
     if created > 0:
-        ask_clean_and_scan_after_export()
+        scan_kodi_library_after_export()

@@ -7,7 +7,7 @@ from common import HANDLE, build_url
 from config import get_selected_languages
 from language_filter import extract_language_from_category
 from strm import write_episode, clean_filename
-from kodi_library import ask_clean_and_scan_after_export
+from kodi_library import scan_kodi_library_after_export
 import xtream
 import cache_index
 from movie_lookup import get_tmdb_api_key, search_tmdb_tv_fuzzy, format_tmdb_search_label, tv_title_from_tmdb_id
@@ -370,7 +370,7 @@ def export_episode(series_id, series_name, season, episode, episode_title, episo
 
     if ok:
         xbmcgui.Dialog().notification("Episode erstellt", clean_filename(export_name), xbmcgui.NOTIFICATION_INFO, 5000)
-        ask_clean_and_scan_after_export()
+        scan_kodi_library_after_export()
 
 
 def export_season(series_id, series_name, season):
@@ -446,7 +446,7 @@ def export_episode_list(series_name, flat, progress_title):
     show_export_result("Export fertig", created, total, failed)
 
     if created > 0:
-        ask_clean_and_scan_after_export()
+        scan_kodi_library_after_export()
 
 
 def show_export_result(title, created, total, failed):

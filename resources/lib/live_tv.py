@@ -593,7 +593,7 @@ def _release_live_tv_lock():
         pass
 
 
-def setup_live_tv(reset_data=False):
+def setup_live_tv(reset_data=False, show_dialog=True):
     if not _acquire_live_tv_lock():
         return
 
@@ -601,10 +601,12 @@ def setup_live_tv(reset_data=False):
         deleted = []
         failed = []
         if reset_data:
-            xbmcgui.Dialog().notification("Live TV", "Setze PVR/EPG Daten zurueck...", xbmcgui.NOTIFICATION_INFO, 3000)
+            if show_dialog:
+                xbmcgui.Dialog().notification("Live TV", "Setze PVR/EPG Daten zurueck...", xbmcgui.NOTIFICATION_INFO, 3000)
             deleted, failed = clear_live_tv_data()
 
-        xbmcgui.Dialog().notification("Live TV", "Erstelle Senderliste...", xbmcgui.NOTIFICATION_INFO, 3000)
+        if show_dialog:
+            xbmcgui.Dialog().notification("Live TV", "Erstelle Senderliste...", xbmcgui.NOTIFICATION_INFO, 3000)
         m3u_path, total, skipped = write_live_tv_m3u()
         if not m3u_path:
             return
@@ -614,22 +616,23 @@ def setup_live_tv(reset_data=False):
         _enable_iptv_simple()
         _reload_pvr()
 
-        xbmcgui.Dialog().ok(
-            "Live TV",
-            "Live TV wurde eingerichtet.\n\n"
-            "Sender: {0}\n"
-            "Ausgelassen: {1}\n"
-            "PVR/EPG Daten geloescht: {2}\n"
-            "Nicht geloescht: {3}\n\n"
-            "{4}".format(
-                total,
-                skipped,
-                ", ".join(deleted) if deleted else "keine",
-                ", ".join(failed) if failed else "keine",
-                "Falls Dateien nicht geloescht wurden, Kodi neu starten und erneut Live TV einrichten."
-                if failed else
-                "PVR/EPG Daten wurden erfolgreich zurueckgesetzt."
+        if show_dialog:
+            xbmcgui.Dialog().ok(
+                "Live TV",
+                "Live TV wurde eingerichtet.\n\n"
+                "Sender: {0}\n"
+                "Ausgelassen: {1}\n"
+                "PVR/EPG Daten geloescht: {2}\n"
+                "Nicht geloescht: {3}\n\n"
+                "{4}".format(
+                    total,
+                    skipped,
+                    ", ".join(deleted) if deleted else "keine",
+                    ", ".join(failed) if failed else "keine",
+                    "Falls Dateien nicht geloescht wurden, Kodi neu starten und erneut Live TV einrichten."
+                    if failed else
+                    "PVR/EPG Daten wurden erfolgreich zurueckgesetzt."
+                )
             )
-        )
     finally:
         _release_live_tv_lock()

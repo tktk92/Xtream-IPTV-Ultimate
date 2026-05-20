@@ -393,7 +393,7 @@ def setup_video_library_content(show_dialog=False):
         return False
 
 
-def setup_kodi_sources():
+def setup_kodi_sources(show_dialog=True):
     sources_path = translate("special://profile/sources.xml")
     ensure_media_folders()
     movie_path = normalize_kodi_path(get_movie_strm_path())
@@ -450,21 +450,38 @@ def setup_kodi_sources():
         tree.write(sources_path, encoding="utf-8", xml_declaration=True)
         content_status = "gesetzt" if setup_video_library_content(show_dialog=False) else "nicht gesetzt"
 
-        xbmcgui.Dialog().ok(
-            "Kodi Quellen",
-            "Quellen wurden eingerichtet.\n\n"
-            "Filme: " + movies_status + "\n"
-            "Serien: " + series_status + "\n\n"
-            "Bibliotheksinhalt: " + content_status + "\n\n"
-            "Falls Kodi die Inhalte nicht sofort erkennt, bitte Kodi neu starten und erneut scannen."
-        )
+        if show_dialog:
+            xbmcgui.Dialog().ok(
+                "Kodi Quellen",
+                "Quellen wurden eingerichtet.\n\n"
+                "Filme: " + movies_status + "\n"
+                "Serien: " + series_status + "\n\n"
+                "Bibliotheksinhalt: " + content_status + "\n\n"
+                "Falls Kodi die Inhalte nicht sofort erkennt, bitte Kodi neu starten und erneut scannen."
+            )
+        return True
     except Exception as e:
-        xbmcgui.Dialog().ok("Fehler", "Quellen konnten nicht eingerichtet werden:\n\n" + str(e))
+        if show_dialog:
+            xbmcgui.Dialog().ok("Fehler", "Quellen konnten nicht eingerichtet werden:\n\n" + str(e))
+        else:
+            xbmc.log("[IPTV Addon] Quellen konnten nicht eingerichtet werden: %s" % e, xbmc.LOGERROR)
+        return False
 
 
-def scan_kodi_library():
+def scan_kodi_library(show_notification=True):
     xbmc.executebuiltin("UpdateLibrary(video)")
-    xbmcgui.Dialog().notification("Kodi Bibliothek", "Videoscan gestartet", xbmcgui.NOTIFICATION_INFO, 5000)
+    if show_notification:
+        xbmcgui.Dialog().notification("Kodi Bibliothek", "Videoscan gestartet", xbmcgui.NOTIFICATION_INFO, 5000)
+
+
+def scan_kodi_library_after_export():
+    scan_kodi_library(show_notification=False)
+    xbmcgui.Dialog().notification(
+        "Kodi Bibliothek",
+        "Suche nach neuen Inhalten gestartet",
+        xbmcgui.NOTIFICATION_INFO,
+        4000
+    )
 
 
 def clean_kodi_library():
