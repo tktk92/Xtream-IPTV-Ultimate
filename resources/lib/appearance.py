@@ -10,10 +10,13 @@ import xbmcaddon
 import xbmcgui
 import xbmcvfs
 
+from common import ADDON_PROFILE
+
 
 ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
 ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
+SKIN_SETUP_STATE_FILE = "skin_setup_state.json"
 
 MAINMENU_ALLOWED_DEFAULT_IDS = ("movies", "tvshows", "livetv", "settings", "power")
 MAINMENU_ALLOWED_LABELS = ("serien", "tv shows", "tvshows", "live tv", "livetv")
@@ -119,6 +122,14 @@ NETFLIX_STYLE_BOOL_SETTINGS = {
     "items.focus.glow.low": False,
     "items.focus.glow.full": False,
     "items.focus.zoom": True,
+    "global.showvideo": False,
+    "background.video.fix.audio.errors": False,
+    "home.netflix.autoplay.trailer": False,
+    "home.netflix.autoplay.trailer.custom.window": False,
+    "home.netflix.autoplay.trailer.custom.window.force": False,
+    "trailer.dont.stop.on.unfocus": False,
+    "playtrailerwindowed": False,
+    "extended.nowplaying.videowindow": False,
 }
 
 
@@ -224,6 +235,10 @@ def _kodi_thumbnails_folder():
     return _translate("special://profile/Thumbnails")
 
 
+def _skin_setup_state_path():
+    return _translate("%s/%s" % (ADDON_PROFILE, SKIN_SETUP_STATE_FILE))
+
+
 def _skin_default_mainmenu_path():
     return _translate("special://home/addons/%s/shortcuts/mainmenu.DATA.xml" % ARCTIC_ZEPHYR_RELOADED_ID)
 
@@ -240,6 +255,20 @@ def _load_json_list(path):
 
 def _save_json_list(path, data):
     _write_text(path, json.dumps(data, indent=4))
+
+
+def _load_json_object(path):
+    if not os.path.exists(path):
+        return {}
+    try:
+        data = json.loads(_read_text(path))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_json_object(path, data):
+    _write_text(path, json.dumps(data, indent=4, sort_keys=True))
 
 
 def _set_shortcut_property(properties, label_id, name, value, group="mainmenu"):
@@ -377,6 +406,51 @@ def _clear_texture_cache():
     return removed
 
 
+def _reload_skinshortcuts_and_skin():
+    xbmcgui.Window(10000).setProperty("skinshortcuts-reloadmainmenu", "True")
+    xbmc.executebuiltin(
+        "RunScript(script.skinshortcuts,type=buildxml&mainmenuID=300&group=mainmenu|x1111|x1112|x1113|x1114|x1115|x1116|x1117|x1118|x1119|powermenu&levels=6)",
+        True,
+    )
+    xbmc.executebuiltin("ReloadSkin()")
+
+
+def _mark_skin_setup_applied():
+    version = xbmcaddon.Addon().getAddonInfo("version")
+    _save_json_object(_skin_setup_state_path(), {"addon_version": version, "applied_at": int(time.time())})
+
+
+def _apply_arctic_zephyr_reloaded_settings(clear_cache=True):
+    _configure_mainmenu_visibility()
+    _configure_widgets()
+    _configure_netflix_colors()
+    if clear_cache:
+        _clear_texture_cache()
+    _reload_skinshortcuts_and_skin()
+    _mark_skin_setup_applied()
+
+
+def apply_arctic_zephyr_reloaded_after_update():
+    if not _is_addon_installed(ARCTIC_ZEPHYR_RELOADED_ID):
+        return False
+
+    if _get_active_skin() != ARCTIC_ZEPHYR_RELOADED_ID:
+        return False
+
+    version = xbmcaddon.Addon().getAddonInfo("version")
+    state = _load_json_object(_skin_setup_state_path())
+    if state.get("addon_version") == version:
+        return False
+
+    try:
+        _apply_arctic_zephyr_reloaded_settings(clear_cache=True)
+        xbmc.log("[IPTV Addon] Arctic Zephyr Skin nach Addon-Update aktualisiert: " + version, xbmc.LOGINFO)
+        return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Arctic Zephyr Auto-Update fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
+        return False
+
+
 def configure_arctic_zephyr_reloaded():
     dialog = xbmcgui.Dialog()
 
@@ -399,19 +473,10 @@ def configure_arctic_zephyr_reloaded():
         return
 
     try:
-        _configure_mainmenu_visibility()
-        _configure_widgets()
-        _configure_netflix_colors()
-        _clear_texture_cache()
-        xbmcgui.Window(10000).setProperty("skinshortcuts-reloadmainmenu", "True")
-        xbmc.executebuiltin(
-            "RunScript(script.skinshortcuts,type=buildxml&mainmenuID=300&group=mainmenu|x1111|x1112|x1113|x1114|x1115|x1116|x1117|x1118|x1119|powermenu&levels=6)",
-            True,
-        )
-        xbmc.executebuiltin("ReloadSkin()")
+        _apply_arctic_zephyr_reloaded_settings(clear_cache=True)
         dialog.notification(
             ARCTIC_ZEPHYR_RELOADED_NAME,
-            "Hauptmenue, Widgets, Farben und Icon-Cache gesetzt",
+            "Hauptmenue, Widgets, Farben, Hintergrundvideo und Icon-Cache gesetzt",
             xbmcgui.NOTIFICATION_INFO,
             5000,
         )

@@ -15,6 +15,7 @@ if LIB_PATH not in sys.path:
     sys.path.append(LIB_PATH)
 
 from auto_import import run_startup_import
+from appearance import apply_arctic_zephyr_reloaded_after_update
 from strm import ensure_media_folders
 
 
@@ -23,6 +24,7 @@ class XtreamStrmService(xbmc.Monitor):
         if self.waitForAbort(60):
             return
         ensure_media_folders()
+        apply_arctic_zephyr_reloaded_after_update()
         run_startup_import()
 
 
