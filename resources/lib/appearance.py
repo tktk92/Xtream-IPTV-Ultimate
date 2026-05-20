@@ -15,6 +15,8 @@ from common import ADDON_PROFILE
 
 ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
 ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
+YOUTUBE_ADDON_ID = "plugin.video.youtube"
+YOUTUBE_ADDON_NAME = "YouTube"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
 SKIN_SETUP_STATE_FILE = "skin_setup_state.json"
 
@@ -111,6 +113,7 @@ NETFLIX_STYLE_SETTINGS = {
     "kodilogocolorgradient.name": "FFB20710",
     "backgroundbrightness": "35",
     "backgroundbrightnessblur": "25",
+    "NetflixTrailerDelay": "5",
 }
 
 NETFLIX_STYLE_BOOL_SETTINGS = {
@@ -126,7 +129,7 @@ NETFLIX_STYLE_BOOL_SETTINGS = {
     "items.focus.zoom": True,
     "global.showvideo": False,
     "background.video.fix.audio.errors": False,
-    "home.netflix.autoplay.trailer": False,
+    "home.netflix.autoplay.trailer": True,
     "home.netflix.autoplay.trailer.custom.window": False,
     "home.netflix.autoplay.trailer.custom.window.force": False,
     "trailer.dont.stop.on.unfocus": False,
@@ -178,6 +181,21 @@ def _wait_for_addon(addon_id, timeout=90):
             return True
         xbmc.sleep(1000)
     return _is_addon_installed(addon_id)
+
+
+def _install_and_enable_addon(addon_id, timeout=90):
+    if not _is_addon_installed(addon_id):
+        xbmc.executebuiltin("InstallAddon(%s)" % addon_id, True)
+
+    if not _wait_for_addon(addon_id, timeout=timeout):
+        return False
+
+    try:
+        xbmcaddon.Addon(addon_id)
+    except Exception:
+        xbmc.executebuiltin("EnableAddon(%s)" % addon_id, True)
+
+    return _wait_for_addon(addon_id, timeout=10)
 
 
 def _open_skin_settings():
@@ -430,6 +448,61 @@ def _apply_arctic_zephyr_reloaded_settings(clear_cache=True):
         _clear_texture_cache()
     _reload_skinshortcuts_and_skin()
     _mark_skin_setup_applied()
+
+
+def install_youtube_addon(show_dialog=True):
+    if _install_and_enable_addon(YOUTUBE_ADDON_ID):
+        if show_dialog:
+            xbmcgui.Dialog().notification(
+                YOUTUBE_ADDON_NAME,
+                "Addon ist installiert",
+                xbmcgui.NOTIFICATION_INFO,
+                4000,
+            )
+        return True
+
+    if show_dialog:
+        xbmcgui.Dialog().ok(
+            YOUTUBE_ADDON_NAME,
+            "Das YouTube-Addon konnte nicht installiert werden.",
+            "Bitte pruefe, ob das offizielle Kodi-Repository aktiviert ist.",
+        )
+    return False
+
+
+def setup_arctic_zephyr_reloaded(show_dialog=False):
+    if not _install_and_enable_addon(ARCTIC_ZEPHYR_RELOADED_ID):
+        if show_dialog:
+            xbmcgui.Dialog().ok(
+                ARCTIC_ZEPHYR_RELOADED_NAME,
+                "Der Skin konnte nicht installiert werden.",
+                "Bitte pruefe, ob das offizielle Kodi-Repository aktiviert ist.",
+            )
+        return False
+
+    if _get_active_skin() != ARCTIC_ZEPHYR_RELOADED_ID:
+        _set_active_skin(ARCTIC_ZEPHYR_RELOADED_ID)
+        xbmc.sleep(1500)
+
+    if _get_active_skin() != ARCTIC_ZEPHYR_RELOADED_ID:
+        if show_dialog:
+            _open_skin_settings()
+            xbmcgui.Dialog().ok(
+                ARCTIC_ZEPHYR_RELOADED_NAME,
+                "Kodi hat den Skin-Wechsel nicht automatisch uebernommen.",
+                "Die Skin-Einstellungen wurden geoeffnet. Bitte Arctic: Zephyr - Reloaded dort auswaehlen.",
+            )
+        return False
+
+    _apply_arctic_zephyr_reloaded_settings(clear_cache=True)
+    if show_dialog:
+        xbmcgui.Dialog().notification(
+            ARCTIC_ZEPHYR_RELOADED_NAME,
+            "Skin, Widgets und Auto-Trailer eingerichtet",
+            xbmcgui.NOTIFICATION_INFO,
+            5000,
+        )
+    return True
 
 
 def apply_arctic_zephyr_reloaded_after_update():
