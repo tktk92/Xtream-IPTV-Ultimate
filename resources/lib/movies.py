@@ -9,7 +9,7 @@ import xbmcplugin
 from common import HANDLE, build_url
 from config import get_selected_languages
 from language_filter import extract_language_from_category
-from strm import write_movie, write_strm_file, clean_filename, get_movie_folder
+from strm import write_movie, clean_filename, get_movie_folder
 from movie_lookup import (
     choose_movie_title,
     get_tmdb_api_key,
@@ -237,6 +237,17 @@ def get_movie_export_title(movie):
     return clean_filename(name)
 
 
+def get_movie_export_metadata(stream_id):
+    index_movie = get_index_movie_by_stream_id(stream_id)
+    if not index_movie:
+        return {}
+
+    return {
+        "tmdb_id": index_movie.get("tmdb_id"),
+        "metadata_checked_at": index_movie.get("metadata_checked_at")
+    }
+
+
 def choose_movie_export_title(stream_id, name):
     index_movie = get_index_movie_by_stream_id(stream_id)
     if index_movie and index_movie.get("tmdb_id"):
@@ -396,8 +407,7 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
                 continue
 
             stream_url = xtream.movie_url(stream_id, movie.get("container_extension", "mp4"))
-            file_path = os.path.join(export_folder, clean_filename(name) + ".strm")
-            if write_strm_file(file_path, stream_url, show_dialog=False):
+            if write_movie(name, stream_url, TMDB_RECENT_FOLDER, metadata=movie, show_dialog=False):
                 created += 1
             else:
                 failed.append(name + " - STRM konnte nicht erstellt werden")
@@ -427,7 +437,7 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
         )
 
     if created > 0:
-        scan_kodi_library_after_export()
+        scan_kodi_library_after_export(export_folder)
 
 
 def add_movie_item(movie, category_name):
@@ -560,21 +570,23 @@ def export_movie(stream_id, name, ext, category_name):
     clean_name = choose_movie_export_title(stream_id, name)
     clean_category = clean_filename(category_name) if category_name else None
     stream_url = xtream.movie_url(stream_id, ext)
+    metadata = get_movie_export_metadata(stream_id)
 
-    ok = write_movie(
+    movie_folder = write_movie(
         clean_name,
         stream_url,
-        clean_category
+        clean_category,
+        metadata=metadata
     )
 
-    if ok:
+    if movie_folder:
         xbmcgui.Dialog().notification(
             "STRM erstellt",
             clean_name,
             xbmcgui.NOTIFICATION_INFO,
             5000
         )
-        scan_kodi_library_after_export()
+        scan_kodi_library_after_export(movie_folder)
 
 
 def export_category(category_id, category_name):
@@ -614,7 +626,7 @@ def export_category(category_id, category_name):
 
             stream_url = xtream.movie_url(stream_id, extension)
 
-            if write_movie(clean_name, stream_url, clean_category, show_dialog=False):
+            if write_movie(clean_name, stream_url, clean_category, metadata=movie, show_dialog=False):
                 created += 1
             else:
                 failed.append(clean_name + " - STRM konnte nicht erstellt werden")
@@ -637,4 +649,4 @@ def export_category(category_id, category_name):
         xbmcgui.Dialog().notification("Export fertig", f"{created} STRM Dateien erstellt", xbmcgui.NOTIFICATION_INFO, 5000)
 
     if created > 0:
-        scan_kodi_library_after_export()
+        scan_kodi_library_after_export(os.path.join(get_movie_folder(), clean_filename(category_name) if category_name else ""))

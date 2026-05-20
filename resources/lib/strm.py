@@ -2,6 +2,8 @@
 
 import os
 import re
+from xml.sax.saxutils import escape
+
 import xbmc
 import xbmcgui
 import xbmcvfs
@@ -138,12 +140,55 @@ def write_strm_file(file_path, stream_url, show_dialog=True):
         return False
 
 
-def write_movie(filename, stream_url, subfolder=None, show_dialog=True):
+def movie_year_from_title(title):
+    match = re.search(r"\((19|20)\d{2}\)", str(title or ""))
+    if not match:
+        return ""
+    return match.group(0).strip("()")
+
+
+def build_movie_nfo(title, metadata=None):
+    metadata = metadata or {}
+    clean_title = str(metadata.get("tmdb_title") or title or "Film").strip()
+    year = str(metadata.get("release_year") or movie_year_from_title(title) or "").strip()
+    tmdb_id = str(metadata.get("tmdb_id") or "").strip()
+
+    lines = ["<movie>"]
+    lines.append("  <title>{0}</title>".format(escape(clean_title)))
+    if year:
+        lines.append("  <year>{0}</year>".format(escape(year)))
+    if tmdb_id and tmdb_id != "0":
+        lines.append('  <uniqueid type="tmdb" default="true">{0}</uniqueid>'.format(escape(tmdb_id)))
+        lines.append("  <tmdbid>{0}</tmdbid>".format(escape(tmdb_id)))
+        lines.append("  <id>{0}</id>".format(escape(tmdb_id)))
+    lines.append("</movie>")
+    return "\n".join(lines) + "\n"
+
+
+def write_movie_nfo(folder, safe_name, metadata=None, show_dialog=True):
+    file_path = os.path.join(folder, safe_name + ".nfo")
+    try:
+        write_text_file(file_path, build_movie_nfo(safe_name, metadata))
+        xbmc.log("NFO ERSTELLT: " + file_path, xbmc.LOGINFO)
+        return True
+    except Exception as e:
+        xbmc.log("NFO ERROR: " + file_path + " | " + str(e), xbmc.LOGERROR)
+        if show_dialog:
+            xbmcgui.Dialog().ok("NFO Fehler", file_path + "\n\n" + str(e))
+        return False
+
+
+def write_movie(filename, stream_url, subfolder=None, metadata=None, show_dialog=True):
     base_folder = get_movie_folder()
-    folder = os.path.join(base_folder, clean_filename(subfolder)) if subfolder else base_folder
     safe_name = clean_filename(filename)
+    category_folder = os.path.join(base_folder, clean_filename(subfolder)) if subfolder else base_folder
+    folder = os.path.join(category_folder, safe_name)
     file_path = os.path.join(folder, safe_name + ".strm")
-    return write_strm_file(file_path, stream_url, show_dialog)
+    if not write_strm_file(file_path, stream_url, show_dialog):
+        return False
+
+    write_movie_nfo(folder, safe_name, metadata, show_dialog=False)
+    return folder
 
 
 def write_episode(series_name, season_number, episode_number, episode_title, stream_url, show_dialog=True):

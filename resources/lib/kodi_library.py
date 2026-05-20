@@ -373,7 +373,7 @@ def setup_video_library_content(show_dialog=False):
         conn = sqlite3.connect(db_path)
         try:
             cursor = conn.cursor()
-            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 0, GERMAN_MOVIE_PATH_SETTINGS)
+            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 1, GERMAN_MOVIE_PATH_SETTINGS)
             set_path_content(cursor, series_path, "tvshows", TV_SCRAPER_ID, 2147483647, 0, GERMAN_TV_PATH_SETTINGS)
             conn.commit()
         finally:
@@ -468,14 +468,17 @@ def setup_kodi_sources(show_dialog=True):
         return False
 
 
-def scan_kodi_library(show_notification=True):
-    xbmc.executebuiltin("UpdateLibrary(video)")
+def scan_kodi_library(show_notification=True, path=None):
+    if path:
+        xbmc.executebuiltin('UpdateLibrary(video,"{0}")'.format(normalize_kodi_path(path).replace('"', "")))
+    else:
+        xbmc.executebuiltin("UpdateLibrary(video)")
     if show_notification:
         xbmcgui.Dialog().notification("Kodi Bibliothek", "Videoscan gestartet", xbmcgui.NOTIFICATION_INFO, 5000)
 
 
-def scan_kodi_library_after_export():
-    scan_kodi_library(show_notification=False)
+def scan_kodi_library_after_export(path=None):
+    scan_kodi_library(show_notification=False, path=path)
     xbmcgui.Dialog().notification(
         "Kodi Bibliothek",
         "Suche nach neuen Inhalten gestartet",

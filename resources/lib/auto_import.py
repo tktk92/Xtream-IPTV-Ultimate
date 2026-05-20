@@ -10,11 +10,12 @@ import xbmcvfs
 
 import cache_index
 import xtream
+from kodi_library import scan_kodi_library_after_export
 from common import ADDON, ADDON_PROFILE
 from config import get_selected_languages
 from language_filter import extract_language_from_category
 from movie_lookup import discover_recent_movies
-from strm import clean_filename, get_movie_folder, write_strm_file
+from strm import clean_filename, get_movie_folder, write_movie
 
 
 TMDB_LANGUAGE_CODES = {
@@ -200,9 +201,8 @@ def run_popular_recent_import(months=6, max_pages=5):
 
         name = format_tmdb_export_title(movie, movie.get("name", "Film"))
         stream_url = xtream.movie_url(stream_id, movie.get("container_extension", "mp4"))
-        file_path = os.path.join(export_folder, clean_filename(name) + ".strm")
 
-        if write_strm_file(file_path, stream_url, show_dialog=False):
+        if write_movie(name, stream_url, TMDB_RECENT_FOLDER, metadata=movie, show_dialog=False):
             created += 1
 
     log("Auto-Import fertig. Treffer: {0}, erstellt: {1}".format(len(matches), created))
@@ -224,7 +224,6 @@ def run_startup_import():
         mark_run(created, matched)
 
         if created > 0:
-            xbmc.executebuiltin("CleanLibrary(video)", True)
-            xbmc.executebuiltin("UpdateLibrary(video)", True)
+            scan_kodi_library_after_export(os.path.join(get_movie_folder(), clean_filename(TMDB_RECENT_FOLDER)))
     except Exception as e:
         log("Auto-Import fehlgeschlagen: " + str(e), xbmc.LOGERROR)
