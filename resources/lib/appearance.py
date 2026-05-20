@@ -216,6 +216,14 @@ def _skin_profile_settings_path():
     return _translate("special://profile/addon_data/%s/settings.xml" % ARCTIC_ZEPHYR_RELOADED_ID)
 
 
+def _kodi_database_folder():
+    return _translate("special://profile/Database")
+
+
+def _kodi_thumbnails_folder():
+    return _translate("special://profile/Thumbnails")
+
+
 def _skin_default_mainmenu_path():
     return _translate("special://home/addons/%s/shortcuts/mainmenu.DATA.xml" % ARCTIC_ZEPHYR_RELOADED_ID)
 
@@ -332,6 +340,43 @@ def _configure_netflix_colors():
     _write_xml(settings_path, root)
 
 
+def _remove_file(path):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Skin Cache Datei konnte nicht geloescht werden: %s | %s" % (path, exc), xbmc.LOGWARNING)
+    return False
+
+
+def _clear_directory_files(path):
+    removed = 0
+    if not os.path.isdir(path):
+        return removed
+
+    for root, _dirs, files in os.walk(path):
+        for filename in files:
+            if _remove_file(os.path.join(root, filename)):
+                removed += 1
+
+    return removed
+
+
+def _clear_texture_cache():
+    removed = 0
+    database_folder = _kodi_database_folder()
+    if os.path.isdir(database_folder):
+        for filename in os.listdir(database_folder):
+            if filename.startswith("Textures") and filename.endswith(".db"):
+                if _remove_file(os.path.join(database_folder, filename)):
+                    removed += 1
+
+    removed += _clear_directory_files(_kodi_thumbnails_folder())
+    xbmc.log("[IPTV Addon] Skin Texture Cache bereinigt: " + str(removed), xbmc.LOGINFO)
+    return removed
+
+
 def configure_arctic_zephyr_reloaded():
     dialog = xbmcgui.Dialog()
 
@@ -345,7 +390,7 @@ def configure_arctic_zephyr_reloaded():
     confirm = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.\n\n"
-        "Widgets, dunkle Netflix-Farben und rote Akzente werden gesetzt.\n\n"
+        "Widgets, dunkle Netflix-Farben, rote Akzente und der Icon-Cache werden gesetzt.\n\n"
         "Soll die Skin-Konfiguration jetzt geschrieben werden?",
         nolabel="Abbrechen",
         yeslabel="Fortfahren",
@@ -357,6 +402,7 @@ def configure_arctic_zephyr_reloaded():
         _configure_mainmenu_visibility()
         _configure_widgets()
         _configure_netflix_colors()
+        _clear_texture_cache()
         xbmcgui.Window(10000).setProperty("skinshortcuts-reloadmainmenu", "True")
         xbmc.executebuiltin(
             "RunScript(script.skinshortcuts,type=buildxml&mainmenuID=300&group=mainmenu|x1111|x1112|x1113|x1114|x1115|x1116|x1117|x1118|x1119|powermenu&levels=6)",
@@ -365,7 +411,7 @@ def configure_arctic_zephyr_reloaded():
         xbmc.executebuiltin("ReloadSkin()")
         dialog.notification(
             ARCTIC_ZEPHYR_RELOADED_NAME,
-            "Hauptmenue, Widgets und Farben gesetzt",
+            "Hauptmenue, Widgets, Farben und Icon-Cache gesetzt",
             xbmcgui.NOTIFICATION_INFO,
             5000,
         )
