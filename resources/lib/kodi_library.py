@@ -475,6 +475,7 @@ def clean_kodi_library():
 def clean_and_scan_kodi_library():
     try:
         removed = remove_empty_strm_dirs()
+        refresh_xtream_library_metadata()
         xbmc.executebuiltin("CleanLibrary(video)", True)
         xbmc.executebuiltin("UpdateLibrary(video)", True)
         xbmcgui.Dialog().notification(
@@ -605,6 +606,33 @@ def remove_xtream_library_items():
     return removed_movies, removed_tvshows
 
 
+def is_video_library_scanning():
+    return xbmc.getCondVisibility("Library.IsScanningVideo")
+
+
+def wait_for_video_library_idle(timeout=900):
+    deadline = time.time() + timeout
+    while is_video_library_scanning() and time.time() < deadline:
+        xbmc.sleep(1000)
+
+    if is_video_library_scanning():
+        xbmc.log("[IPTV Addon] Videoscan laeuft noch, Metadaten-Refresh wird uebersprungen", xbmc.LOGWARNING)
+        return False
+
+    return True
+
+
+def refresh_xtream_library_metadata():
+    if not wait_for_video_library_idle():
+        return 0, 0
+
+    removed_movies, removed_tvshows = remove_xtream_library_items()
+    if removed_movies or removed_tvshows:
+        xbmc.sleep(1000)
+
+    return removed_movies, removed_tvshows
+
+
 def apply_kodi_library_update_after_addon_update():
     version = xbmcaddon.Addon().getAddonInfo("version")
     state_path = library_setup_state_path()
@@ -616,8 +644,10 @@ def apply_kodi_library_update_after_addon_update():
         ensure_media_folders()
         configure_metadata_scrapers_german()
         setup_video_library_content(show_dialog=False)
-        removed_movies, removed_tvshows = remove_xtream_library_items()
+        removed_movies, removed_tvshows = refresh_xtream_library_metadata()
+        wait_for_video_library_idle()
         xbmc.executebuiltin("CleanLibrary(video)", True)
+        wait_for_video_library_idle()
         xbmc.executebuiltin("UpdateLibrary(video)")
         save_json_object(
             state_path,
