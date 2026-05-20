@@ -13,7 +13,7 @@ import kodi_library
 from common import ADDON, ADDON_PROFILE
 from config import get_selected_languages
 from language_filter import extract_language_from_category
-from movie_lookup import discover_recent_movies, get_tmdb_movie_by_id
+from movie_lookup import discover_recent_movies, get_tmdb_movie_by_id, get_tmdb_movie_trailer
 from strm import clean_filename, get_movie_folder, write_movie
 
 
@@ -158,6 +158,7 @@ def enrich_movie_with_tmdb_details(movie):
         "poster_path": details.get("poster_path") or movie.get("poster_path", ""),
         "backdrop_path": details.get("backdrop_path") or movie.get("backdrop_path", ""),
         "rating": details.get("vote_average") or movie.get("rating", ""),
+        "trailer": movie.get("trailer") or get_tmdb_movie_trailer(details.get("id") or tmdb_id),
         "runtime": details.get("runtime") or movie.get("runtime", ""),
         "genres": details.get("genres") or movie.get("genres", []),
         "release_date": release_date,
@@ -213,6 +214,7 @@ def tmdb_movie_to_export_item(tmdb_movie, match):
         "poster_path": tmdb_movie.get("poster_path", ""),
         "backdrop_path": tmdb_movie.get("backdrop_path", ""),
         "rating": tmdb_movie.get("vote_average", ""),
+        "trailer": get_tmdb_movie_trailer(tmdb_movie.get("id")),
         "release_date": release_date,
         "release_year": release_date[:4] if len(release_date) >= 4 else "",
     })

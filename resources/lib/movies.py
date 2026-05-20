@@ -15,6 +15,7 @@ from movie_lookup import (
     get_tmdb_api_key,
     title_from_tmdb_id,
     get_tmdb_movie_by_id,
+    get_tmdb_movie_trailer,
     discover_recent_movies,
     search_tmdb_movie_fuzzy,
     format_tmdb_search_label
@@ -283,6 +284,7 @@ def enrich_movie_metadata(metadata):
         "release_year": release_date[:4] if len(release_date) >= 4 else metadata.get("release_year"),
         "runtime": details.get("runtime") or metadata.get("runtime"),
         "rating": details.get("vote_average") or metadata.get("rating"),
+        "trailer": metadata.get("trailer") or get_tmdb_movie_trailer(details.get("id") or tmdb_id),
         "genres": details.get("genres") or metadata.get("genres"),
         "poster_path": details.get("poster_path") or metadata.get("poster_path"),
         "backdrop_path": details.get("backdrop_path") or metadata.get("backdrop_path"),

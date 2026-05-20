@@ -169,6 +169,7 @@ def build_movie_nfo(title, metadata=None):
     plot = str(metadata.get("plot") or metadata.get("overview") or "").strip()
     runtime = str(metadata.get("runtime") or "").strip()
     rating = str(metadata.get("rating") or metadata.get("vote_average") or "").strip()
+    trailer = str(metadata.get("trailer") or metadata.get("trailer_url") or "").strip()
     poster_path = str(metadata.get("poster_path") or "").strip()
     backdrop_path = str(metadata.get("backdrop_path") or "").strip()
     poster_url = str(metadata.get("poster") or metadata.get("thumb") or "").strip()
@@ -195,6 +196,8 @@ def build_movie_nfo(title, metadata=None):
         lines.append("  <runtime>{0}</runtime>".format(escape(runtime)))
     if rating:
         lines.append("  <rating>{0}</rating>".format(escape(rating)))
+    if trailer:
+        lines.append("  <trailer>{0}</trailer>".format(escape(trailer)))
     if tmdb_id and tmdb_id != "0":
         lines.append('  <uniqueid type="tmdb" default="true">{0}</uniqueid>'.format(escape(tmdb_id)))
         lines.append("  <tmdbid>{0}</tmdbid>".format(escape(tmdb_id)))

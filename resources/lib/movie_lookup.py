@@ -13,11 +13,13 @@ from strm import clean_filename
 
 TMDB_API_URL = "https://api.themoviedb.org/3/search/movie"
 TMDB_MOVIE_DETAILS_URL = "https://api.themoviedb.org/3/movie/{0}"
+TMDB_MOVIE_VIDEOS_URL = "https://api.themoviedb.org/3/movie/{0}/videos"
 TMDB_TV_DETAILS_URL = "https://api.themoviedb.org/3/tv/{0}"
 TMDB_TV_SEARCH_URL = "https://api.themoviedb.org/3/search/tv"
 TMDB_DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie"
 
 TMDB_MOVIE_ID_CACHE = {}
+TMDB_MOVIE_TRAILER_CACHE = {}
 TMDB_TV_ID_CACHE = {}
 
 NOISE_WORDS = [
@@ -137,6 +139,86 @@ def get_tmdb_movie_by_id(tmdb_id, language="de-DE"):
         xbmc.log("[IPTV Addon] TMDb Film-ID Suche fehlgeschlagen: " + str(tmdb_id) + " | " + str(e), xbmc.LOGERROR)
         TMDB_MOVIE_ID_CACHE[cache_key] = None
         return None
+
+
+def get_tmdb_movie_videos(tmdb_id, language="de-DE"):
+    api_key = get_tmdb_api_key()
+    tmdb_id = str(tmdb_id or "").strip()
+    if not api_key or not tmdb_id:
+        return []
+
+    cache_key = (tmdb_id, language)
+    if cache_key in TMDB_MOVIE_TRAILER_CACHE:
+        return TMDB_MOVIE_TRAILER_CACHE[cache_key]
+
+    params = {
+        "api_key": api_key,
+        "language": language
+    }
+    url = TMDB_MOVIE_VIDEOS_URL.format(urllib.parse.quote(tmdb_id)) + "?" + urllib.parse.urlencode(params)
+
+    try:
+        payload = load_tmdb_json(url)
+        results = payload.get("results", []) or []
+        TMDB_MOVIE_TRAILER_CACHE[cache_key] = results
+        return results
+    except Exception as e:
+        xbmc.log("[IPTV Addon] TMDb Trailer-Suche fehlgeschlagen: " + str(tmdb_id) + " | " + str(e), xbmc.LOGERROR)
+        TMDB_MOVIE_TRAILER_CACHE[cache_key] = []
+        return []
+
+
+def score_tmdb_video(video):
+    score = 0
+    video_type = str(video.get("type") or "").lower()
+    name = str(video.get("name") or "").lower()
+
+    if video_type == "trailer":
+        score += 100
+    elif video_type == "teaser":
+        score += 60
+
+    if video.get("official"):
+        score += 20
+    if "trailer" in name:
+        score += 10
+    if "teaser" in name:
+        score += 5
+
+    return score
+
+
+def get_tmdb_movie_trailer(tmdb_id, languages=None):
+    languages = languages or ("de-DE", "en-US")
+    fallback = None
+
+    for language in languages:
+        videos = get_tmdb_movie_videos(tmdb_id, language)
+        candidates = []
+        for video in videos:
+            site = str(video.get("site") or "").lower()
+            key = str(video.get("key") or "").strip()
+            video_type = str(video.get("type") or "").lower()
+            if site != "youtube" or not key:
+                continue
+            if video_type not in ("trailer", "teaser"):
+                continue
+            candidates.append(video)
+
+        if not candidates:
+            continue
+
+        candidates.sort(key=score_tmdb_video, reverse=True)
+        best = candidates[0]
+        trailer = "plugin://plugin.video.youtube/play/?video_id={0}".format(
+            urllib.parse.quote(str(best.get("key") or "").strip())
+        )
+        if language == "de-DE":
+            return trailer
+        if fallback is None:
+            fallback = trailer
+
+    return fallback or ""
 
 
 def search_tmdb_tv(query, language="de-DE"):
@@ -438,12 +520,15 @@ def get_movie_metadata(original_title):
     release_date = match.get("release_date") or ""
     title = match.get("title") or match.get("original_title") or original_title
 
+    trailer = get_tmdb_movie_trailer(match.get("id"))
+
     return {
         "tmdb_id": match.get("id"),
         "tmdb_title": title,
         "tmdb_original_title": match.get("original_title") or "",
         "release_date": release_date,
         "release_year": release_date[:4] if len(release_date) >= 4 else "",
+        "trailer": trailer,
         "search_query": query
     }
 
