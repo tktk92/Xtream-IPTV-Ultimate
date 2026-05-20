@@ -131,7 +131,7 @@ def run_setup_wizard(force=False):
         yeslabel="Installieren"
     )
     if install_scrapers:
-        kodi_library.install_metadata_scrapers(show_dialog=True)
+        kodi_library.install_and_configure_metadata_scrapers(show_dialog=True)
 
     setup_sources = xbmcgui.Dialog().yesno(
         "Kodi Quellen",

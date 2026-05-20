@@ -115,6 +115,8 @@ NETFLIX_STYLE_SETTINGS = {
 
 NETFLIX_STYLE_BOOL_SETTINGS = {
     "homemenu.netflix": True,
+    "home.vertical": True,
+    "home.vertical.widgets": True,
     "furniture.coloredicons": False,
     "osd.coloredicons": False,
     "tmdbhelper.enablecolors": False,

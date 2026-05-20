@@ -16,6 +16,7 @@ if LIB_PATH not in sys.path:
 
 from auto_import import run_startup_import
 from appearance import apply_arctic_zephyr_reloaded_after_update
+from kodi_library import apply_kodi_library_update_after_addon_update
 from strm import ensure_media_folders
 
 
@@ -25,6 +26,7 @@ class XtreamStrmService(xbmc.Monitor):
             return
         ensure_media_folders()
         apply_arctic_zephyr_reloaded_after_update()
+        apply_kodi_library_update_after_addon_update()
         run_startup_import()
 
 

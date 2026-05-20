@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import json
 import os
+import time
 import xml.etree.ElementTree as ET
 
 import xbmc
@@ -8,7 +10,7 @@ import xbmcgui
 import xbmcaddon
 import xbmcvfs
 
-from common import get_movie_strm_path, get_series_strm_path
+from common import ADDON_PROFILE, get_movie_strm_path, get_series_strm_path
 from strm import ensure_media_folders
 
 
@@ -16,6 +18,23 @@ MOVIE_SOURCE_NAME = "Xtream IPTV Ultimate Filme"
 SERIES_SOURCE_NAME = "Xtream IPTV Ultimate Serien"
 MOVIE_SCRAPER_ID = "metadata.themoviedb.org.python"
 TV_SCRAPER_ID = "metadata.tvshows.themoviedb.org.python"
+LIBRARY_SETUP_STATE_FILE = "library_setup_state.json"
+GERMAN_MOVIE_SCRAPER_SETTINGS = {
+    "keeporiginaltitle": "false",
+    "language": "de-DE",
+    "searchlanguage": "de-DE",
+    "tmdbcertcountry": "de",
+    "certprefix": "FSK ",
+    "fanarttv_language": "de",
+}
+GERMAN_TV_SCRAPER_SETTINGS = {
+    "languageDetails": "de-DE",
+    "usedifferentlangforimages": "false",
+    "languageImages": "de-DE",
+    "tmdbcertcountry": "de",
+    "certprefix": "FSK ",
+    "keeporiginaltitle": "false",
+}
 SCRAPER_LABELS = {
     MOVIE_SCRAPER_ID: "The Movie Database Python",
     TV_SCRAPER_ID: "TMDb TV Shows",
@@ -54,8 +73,94 @@ def install_metadata_scrapers(show_dialog=True):
     return results
 
 
+def translate(path):
+    return xbmcvfs.translatePath(path)
+
+
+def ensure_parent(path):
+    parent = os.path.dirname(path)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+
+
+def read_text(path):
+    with open(path, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def write_text(path, text):
+    ensure_parent(path)
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
+def load_json_object(path):
+    if not os.path.exists(path):
+        return {}
+    try:
+        data = json.loads(read_text(path))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_json_object(path, data):
+    write_text(path, json.dumps(data, indent=4, sort_keys=True))
+
+
+def library_setup_state_path():
+    return translate(os.path.join(ADDON_PROFILE, LIBRARY_SETUP_STATE_FILE))
+
+
+def addon_settings_path(addon_id):
+    return translate("special://profile/addon_data/{0}/settings.xml".format(addon_id))
+
+
+def set_settings_xml_values(path, values):
+    if os.path.exists(path):
+        root = ET.parse(path).getroot()
+    else:
+        root = ET.Element("settings", {"version": "2"})
+
+    for setting_id, value in values.items():
+        node = root.find("./setting[@id='{0}']".format(setting_id))
+        if node is None:
+            node = ET.SubElement(root, "setting", {"id": setting_id})
+        node.text = value
+        if "default" in node.attrib:
+            del node.attrib["default"]
+
+    ensure_parent(path)
+    tree = ET.ElementTree(root)
+    try:
+        ET.indent(tree, space="    ")
+    except AttributeError:
+        pass
+    tree.write(path, encoding="UTF-8", xml_declaration=True)
+
+
+def configure_metadata_scrapers_german():
+    install_metadata_scrapers(show_dialog=False)
+    set_settings_xml_values(addon_settings_path(MOVIE_SCRAPER_ID), GERMAN_MOVIE_SCRAPER_SETTINGS)
+    set_settings_xml_values(addon_settings_path(TV_SCRAPER_ID), GERMAN_TV_SCRAPER_SETTINGS)
+    xbmc.log("[IPTV Addon] Kodi Scraper auf Deutsch konfiguriert", xbmc.LOGINFO)
+
+
+def install_and_configure_metadata_scrapers(show_dialog=True):
+    results = install_metadata_scrapers(show_dialog=False)
+    configure_metadata_scrapers_german()
+
+    if show_dialog:
+        xbmcgui.Dialog().ok(
+            "Kodi Scraper",
+            "\n".join(results) + "\n\nSprache: Deutsch",
+        )
+
+    return results
+
+
 def remove_empty_dirs(path):
-    path = xbmcvfs.translatePath(path)
+    path = translate(path)
     if not path or not os.path.exists(path):
         return 0
 
@@ -86,7 +191,7 @@ def normalize_kodi_path(path):
 
 
 def get_video_database_path():
-    database_dir = xbmcvfs.translatePath("special://profile/Database")
+    database_dir = translate("special://profile/Database")
     if not os.path.exists(database_dir):
         return ""
 
@@ -175,12 +280,14 @@ def setup_video_library_content(show_dialog=False):
 
 
 def setup_kodi_sources():
-    sources_path = xbmcvfs.translatePath("special://profile/sources.xml")
+    sources_path = translate("special://profile/sources.xml")
     ensure_media_folders()
     movie_path = normalize_kodi_path(get_movie_strm_path())
     series_path = normalize_kodi_path(get_series_strm_path())
 
     try:
+        configure_metadata_scrapers_german()
+
         if os.path.exists(sources_path):
             tree = ET.parse(sources_path)
             root = tree.getroot()
@@ -282,3 +389,133 @@ def ask_clean_and_scan_after_export():
         return
 
     clean_and_scan_kodi_library()
+
+
+def json_rpc(method, params=None):
+    payload = {
+        "jsonrpc": "2.0",
+        "method": method,
+        "id": 1,
+    }
+    if params is not None:
+        payload["params"] = params
+
+    response = xbmc.executeJSONRPC(json.dumps(payload))
+    try:
+        return json.loads(response)
+    except Exception:
+        return {}
+
+
+def remove_movie_from_library(movie_id):
+    data = json_rpc("VideoLibrary.RemoveMovie", {"movieid": int(movie_id)})
+    return data.get("result") == "OK"
+
+
+def remove_tvshow_from_library(tvshow_id):
+    data = json_rpc("VideoLibrary.RemoveTVShow", {"tvshowid": int(tvshow_id), "deleteepisodes": True})
+    return data.get("result") == "OK"
+
+
+def get_xtream_library_ids():
+    try:
+        import sqlite3
+    except Exception:
+        return [], []
+
+    db_path = get_video_database_path()
+    if not db_path:
+        return [], []
+
+    movie_path = normalize_kodi_path(get_movie_strm_path()).replace("\\", "/")
+    series_path = normalize_kodi_path(get_series_strm_path()).replace("\\", "/")
+    movie_ids = []
+    tvshow_ids = []
+
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT DISTINCT m.idMovie
+                FROM movie m
+                LEFT JOIN files f ON f.idFile = m.idFile
+                LEFT JOIN path p ON p.idPath = f.idPath
+                WHERE replace(COALESCE(m.c22, ''), '\\', '/') LIKE ?
+                   OR replace(COALESCE(p.strPath, ''), '\\', '/') LIKE ?
+                """,
+                (movie_path + "%", movie_path + "%"),
+            )
+            movie_ids = [row[0] for row in cursor.fetchall()]
+
+            cursor.execute(
+                """
+                SELECT DISTINCT t.idShow
+                FROM tvshow t
+                LEFT JOIN tvshowlinkpath tp ON tp.idShow = t.idShow
+                LEFT JOIN path p ON p.idPath = tp.idPath
+                WHERE replace(COALESCE(p.strPath, ''), '\\', '/') LIKE ?
+                """,
+                (series_path + "%",),
+            )
+            tvshow_ids = [row[0] for row in cursor.fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Xtream Bibliotheks-IDs konnten nicht gelesen werden: %s" % exc, xbmc.LOGERROR)
+
+    return movie_ids, tvshow_ids
+
+
+def remove_xtream_library_items():
+    movie_ids, tvshow_ids = get_xtream_library_ids()
+    removed_movies = 0
+    removed_tvshows = 0
+
+    for movie_id in movie_ids:
+        if remove_movie_from_library(movie_id):
+            removed_movies += 1
+
+    for tvshow_id in tvshow_ids:
+        if remove_tvshow_from_library(tvshow_id):
+            removed_tvshows += 1
+
+    xbmc.log(
+        "[IPTV Addon] Alte Xtream Bibliotheksdaten entfernt: Filme={0}, Serien={1}".format(
+            removed_movies,
+            removed_tvshows,
+        ),
+        xbmc.LOGINFO,
+    )
+    return removed_movies, removed_tvshows
+
+
+def apply_kodi_library_update_after_addon_update():
+    version = xbmcaddon.Addon().getAddonInfo("version")
+    state_path = library_setup_state_path()
+    state = load_json_object(state_path)
+    if state.get("addon_version") == version:
+        return False
+
+    try:
+        ensure_media_folders()
+        configure_metadata_scrapers_german()
+        setup_video_library_content(show_dialog=False)
+        removed_movies, removed_tvshows = remove_xtream_library_items()
+        xbmc.executebuiltin("CleanLibrary(video)", True)
+        xbmc.executebuiltin("UpdateLibrary(video)")
+        save_json_object(
+            state_path,
+            {
+                "addon_version": version,
+                "applied_at": int(time.time()),
+                "removed_movies": removed_movies,
+                "removed_tvshows": removed_tvshows,
+            },
+        )
+        xbmc.log("[IPTV Addon] Kodi Bibliothek nach Addon-Update aktualisiert: " + version, xbmc.LOGINFO)
+        return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Kodi Bibliothek Auto-Update fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
+        return False

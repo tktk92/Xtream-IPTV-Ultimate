@@ -158,7 +158,7 @@ def router():
         kodi_library.setup_video_library_content(show_dialog=True)
 
     elif mode == "install_metadata_scrapers":
-        kodi_library.install_metadata_scrapers(show_dialog=True)
+        kodi_library.install_and_configure_metadata_scrapers(show_dialog=True)
 
     elif mode == "scan_library":
         kodi_library.scan_kodi_library()
