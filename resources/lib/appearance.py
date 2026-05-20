@@ -15,7 +15,8 @@ ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
 ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
 
-MAINMENU_ALLOWED_DEFAULT_IDS = ("movies", "tvshows", "settings", "power")
+MAINMENU_ALLOWED_DEFAULT_IDS = ("movies", "tvshows", "livetv", "settings", "power")
+MAINMENU_ALLOWED_LABELS = ("serien", "tv shows", "tvshows", "live tv", "livetv")
 
 MOVIE_WIDGETS = (
     {
@@ -253,8 +254,10 @@ def _configure_mainmenu_visibility():
 
     for shortcut in root.findall("shortcut"):
         default_id = shortcut.findtext("defaultID")
+        label = shortcut.findtext("label") or ""
+        label_normalized = label.strip().lower()
         disabled = shortcut.find("disabled")
-        if default_id in MAINMENU_ALLOWED_DEFAULT_IDS:
+        if default_id in MAINMENU_ALLOWED_DEFAULT_IDS or label_normalized in MAINMENU_ALLOWED_LABELS:
             if disabled is not None:
                 shortcut.remove(disabled)
         elif disabled is None:
