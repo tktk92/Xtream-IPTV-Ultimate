@@ -308,6 +308,15 @@ def _setting_node(root, setting_id, setting_type):
 
 
 def _configure_netflix_colors():
+    for setting_id, value in NETFLIX_STYLE_SETTINGS.items():
+        xbmc.executebuiltin("Skin.SetString(%s,%s)" % (setting_id, value))
+
+    for setting_id, value in NETFLIX_STYLE_BOOL_SETTINGS.items():
+        if value:
+            xbmc.executebuiltin("Skin.SetBool(%s)" % setting_id)
+        else:
+            xbmc.executebuiltin("Skin.Reset(%s)" % setting_id)
+
     settings_path = _skin_profile_settings_path()
     if os.path.exists(settings_path):
         root = ET.parse(settings_path).getroot()
