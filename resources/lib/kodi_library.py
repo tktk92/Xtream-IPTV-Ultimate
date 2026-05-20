@@ -348,6 +348,87 @@ def set_path_content(cursor, path_value, content, scraper, recursive, use_folder
     )
 
 
+def kodi_path_from_local_path(path, base_setting):
+    if not path:
+        return ""
+
+    kodi_base = normalize_kodi_path(base_setting).replace("\\", "/")
+    local_base = os.path.abspath(translate(base_setting))
+    local_path = os.path.abspath(translate(path))
+
+    try:
+        relative = os.path.relpath(local_path, local_base)
+    except Exception:
+        return normalize_kodi_path(str(path).replace("\\", "/"))
+
+    if relative == ".":
+        return kodi_base
+    if relative.startswith(".."):
+        return normalize_kodi_path(str(path).replace("\\", "/"))
+
+    return normalize_kodi_path(kodi_base + relative.replace("\\", "/"))
+
+
+def set_movie_scan_path_content(path):
+    try:
+        import sqlite3
+    except Exception:
+        return False
+
+    db_path = get_video_database_path()
+    if not db_path or not path:
+        return False
+
+    kodi_path = kodi_path_from_local_path(path, get_movie_strm_path())
+
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            cursor = conn.cursor()
+            set_path_content(cursor, kodi_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 1, GERMAN_MOVIE_PATH_SETTINGS)
+            conn.commit()
+        finally:
+            conn.close()
+        return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Film-Scanpfad konnte nicht gesetzt werden: %s | %s" % (path, exc), xbmc.LOGERROR)
+        return False
+
+
+def setup_existing_movie_folder_content():
+    try:
+        import sqlite3
+    except Exception:
+        return 0
+
+    db_path = get_video_database_path()
+    movie_folder = translate(get_movie_strm_path())
+    if not db_path or not os.path.isdir(movie_folder):
+        return 0
+
+    paths = [movie_folder]
+    for root, dirs, files in os.walk(movie_folder):
+        if root != movie_folder:
+            paths.append(root)
+
+    updated = 0
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            cursor = conn.cursor()
+            for path in paths:
+                kodi_path = kodi_path_from_local_path(path, get_movie_strm_path())
+                set_path_content(cursor, kodi_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 1, GERMAN_MOVIE_PATH_SETTINGS)
+                updated += 1
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Bestehende Filmordner konnten nicht als Filme gesetzt werden: %s" % exc, xbmc.LOGERROR)
+
+    return updated
+
+
 def setup_video_library_content(show_dialog=False):
     try:
         import sqlite3
@@ -378,6 +459,8 @@ def setup_video_library_content(show_dialog=False):
             conn.commit()
         finally:
             conn.close()
+
+        setup_existing_movie_folder_content()
 
         if show_dialog:
             xbmcgui.Dialog().ok(
@@ -470,7 +553,8 @@ def setup_kodi_sources(show_dialog=True):
 
 def scan_kodi_library(show_notification=True, path=None):
     if path:
-        xbmc.executebuiltin('UpdateLibrary(video,"{0}")'.format(normalize_kodi_path(path).replace('"', "")))
+        scan_path = kodi_path_from_local_path(path, get_movie_strm_path())
+        xbmc.executebuiltin('UpdateLibrary(video,"{0}")'.format(normalize_kodi_path(scan_path).replace('"', "")))
     else:
         xbmc.executebuiltin("UpdateLibrary(video)")
     if show_notification:
@@ -478,6 +562,8 @@ def scan_kodi_library(show_notification=True, path=None):
 
 
 def scan_kodi_library_after_export(path=None):
+    if path:
+        set_movie_scan_path_content(path)
     scan_kodi_library(show_notification=False, path=path)
     xbmcgui.Dialog().notification(
         "Kodi Bibliothek",
