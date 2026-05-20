@@ -146,6 +146,10 @@ def _open_skin_settings():
     xbmc.executebuiltin("SetFocus(30)")
 
 
+def _yesno(title, line1="", line2="", line3="", nolabel="Abbrechen", yeslabel="Ja"):
+    return xbmcgui.Dialog().yesno(title, line1, line2, line3, nolabel, yeslabel)
+
+
 def _translate(path):
     return xbmcvfs.translatePath(path)
 
@@ -271,13 +275,13 @@ def configure_arctic_zephyr_reloaded():
         )
         return
 
-    confirm = dialog.yesno(
+    confirm = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.",
         "Filme, Serien und Einstellungen bekommen passende Widgets. Power bleibt ohne Widget.",
         "Soll die Skin-Konfiguration jetzt geschrieben werden?",
-        nolabel="Abbrechen",
-        yeslabel="Fortfahren",
+        "Abbrechen",
+        "Fortfahren",
     )
     if not confirm:
         return
@@ -309,12 +313,13 @@ def install_arctic_zephyr_reloaded():
     dialog = xbmcgui.Dialog()
 
     if not _is_addon_installed(ARCTIC_ZEPHYR_RELOADED_ID):
-        install = dialog.yesno(
+        install = _yesno(
             ARCTIC_ZEPHYR_RELOADED_NAME,
             "Der Skin wird aus dem offiziellen Kodi-Repository installiert.",
             "Installation jetzt starten?",
-            nolabel="Abbrechen",
-            yeslabel="Installieren",
+            "",
+            "Abbrechen",
+            "Installieren",
         )
         if not install:
             return
@@ -334,12 +339,13 @@ def install_arctic_zephyr_reloaded():
     except Exception:
         xbmc.executebuiltin("EnableAddon(%s)" % ARCTIC_ZEPHYR_RELOADED_ID, True)
 
-    switch = dialog.yesno(
+    switch = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Der Skin ist installiert.",
         "Jetzt als Kodi-Skin aktivieren?",
-        nolabel="Abbrechen",
-        yeslabel="Aktivieren",
+        "",
+        "Abbrechen",
+        "Aktivieren",
     )
     if not switch:
         return
