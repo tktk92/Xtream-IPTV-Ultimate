@@ -2,7 +2,6 @@
 
 import json
 import os
-import shutil
 import time
 
 import xbmc
@@ -10,7 +9,7 @@ import xbmcvfs
 
 import cache_index
 import xtream
-from kodi_library import scan_kodi_library_after_export
+import kodi_library
 from common import ADDON, ADDON_PROFILE
 from config import get_selected_languages
 from language_filter import extract_language_from_category
@@ -254,7 +253,7 @@ def format_tmdb_export_title(movie, fallback_name):
     return clean_filename(title)
 
 
-def reset_export_folder():
+def ensure_export_folder():
     base_folder = get_movie_folder()
     export_folder = os.path.join(base_folder, clean_filename(TMDB_RECENT_FOLDER))
     base_abs = os.path.abspath(base_folder)
@@ -262,9 +261,6 @@ def reset_export_folder():
 
     if os.path.commonpath([base_abs, export_abs]) != base_abs:
         raise Exception("Ungueltiger Exportordner: " + export_folder)
-
-    if os.path.exists(export_folder):
-        shutil.rmtree(export_folder)
 
     os.makedirs(export_folder, exist_ok=True)
     return export_folder
@@ -274,7 +270,7 @@ def run_popular_recent_import(months=None, max_pages=None, limit_per_language=No
     selected_languages = get_selected_languages()
     if not selected_languages:
         log("Kein Sprachfilter gewaehlt, Auto-Import uebersprungen.")
-        return 0, 0
+        return 0, 0, []
 
     months = int(months or get_setting_int("auto_tmdb_recent_months", DEFAULT_RECENT_MONTHS, 1, 36))
     max_pages = int(max_pages or get_setting_int("auto_tmdb_recent_max_pages", DEFAULT_RECENT_MAX_PAGES, 1, 100))
@@ -288,7 +284,7 @@ def run_popular_recent_import(months=None, max_pages=None, limit_per_language=No
     supported_languages = [language for language in selected_languages if get_tmdb_language_code(language) is not None]
     if not supported_languages:
         log("Keine TMDb-Sprachzuordnung fuer: " + ", ".join(selected_languages), xbmc.LOGWARNING)
-        return 0, 0
+        return 0, 0, []
 
     cache_index.ensure_index(show_progress=False, notify=False)
 
@@ -313,10 +309,11 @@ def run_popular_recent_import(months=None, max_pages=None, limit_per_language=No
 
     if not matches:
         log("Keine passenden Filme im Index gefunden.")
-        return 0, 0
+        return 0, 0, []
 
-    reset_export_folder()
+    ensure_export_folder()
     created = 0
+    changed_folders = []
 
     for movie in matches:
         stream_id = movie.get("stream_id")
@@ -326,11 +323,14 @@ def run_popular_recent_import(months=None, max_pages=None, limit_per_language=No
         name = format_tmdb_export_title(movie, movie.get("name", "Film"))
         stream_url = xtream.movie_url(stream_id, movie.get("container_extension", "mp4"))
 
-        if write_movie(name, stream_url, TMDB_RECENT_FOLDER, metadata=movie, show_dialog=False):
+        result = write_movie(name, stream_url, TMDB_RECENT_FOLDER, metadata=movie, show_dialog=False)
+        if result:
             created += 1
+            if isinstance(result, dict) and result.get("changed") and result.get("folder"):
+                changed_folders.append(result.get("folder"))
 
     log("Auto-Import fertig. Treffer: {0}, erstellt: {1} | {2}".format(len(matches), created, language_counts))
-    return created, len(matches)
+    return created, len(matches), changed_folders
 
 
 def run_startup_import():
@@ -344,10 +344,10 @@ def run_startup_import():
 
     try:
         cache_index.ensure_index(show_progress=False, notify=False)
-        created, matched = run_popular_recent_import()
+        created, matched, changed_folders = run_popular_recent_import()
         mark_run(created, matched)
 
-        if created > 0:
-            scan_kodi_library_after_export(os.path.join(get_movie_folder(), clean_filename(TMDB_RECENT_FOLDER)))
+        if changed_folders:
+            kodi_library.scan_kodi_library_paths_after_export(changed_folders)
     except Exception as e:
         log("Auto-Import fehlgeschlagen: " + str(e), xbmc.LOGERROR)

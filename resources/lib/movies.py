@@ -631,21 +631,21 @@ def export_movie(stream_id, name, ext, category_name):
     stream_url = xtream.movie_url(stream_id, ext)
     metadata = get_movie_export_metadata(stream_id)
 
-    movie_folder = write_movie(
+    movie_result = write_movie(
         clean_name,
         stream_url,
         clean_category,
         metadata=metadata
     )
 
-    if movie_folder:
+    if movie_result:
         xbmcgui.Dialog().notification(
             "STRM erstellt",
             clean_name,
             xbmcgui.NOTIFICATION_INFO,
             5000
         )
-        scan_kodi_library_after_export(movie_folder)
+        scan_kodi_library_after_export(movie_result.get("folder") if isinstance(movie_result, dict) else movie_result)
 
 
 def export_category(category_id, category_name):

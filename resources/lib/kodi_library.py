@@ -573,6 +573,33 @@ def scan_kodi_library_after_export(path=None):
     )
 
 
+def scan_kodi_library_paths_after_export(paths):
+    unique_paths = []
+    seen = set()
+    for path in paths or []:
+        if not path:
+            continue
+        key = os.path.abspath(translate(path))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_paths.append(path)
+
+    for path in unique_paths:
+        if not wait_for_video_library_idle(timeout=120):
+            break
+        set_movie_scan_path_content(path)
+        scan_kodi_library(show_notification=False, path=path)
+
+    if unique_paths:
+        xbmcgui.Dialog().notification(
+            "Kodi Bibliothek",
+            "{0} neue/geaenderte Filmordner werden gescannt".format(len(unique_paths)),
+            xbmcgui.NOTIFICATION_INFO,
+            4000
+        )
+
+
 def clean_kodi_library():
     xbmc.executebuiltin("CleanLibrary(video)")
     xbmcgui.Dialog().notification("Kodi Bibliothek", "Bereinigung gestartet", xbmcgui.NOTIFICATION_INFO, 5000)

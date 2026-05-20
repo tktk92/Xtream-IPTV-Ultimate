@@ -113,6 +113,16 @@ def write_text_file(path, text):
             file_handle.close()
 
 
+def text_file_matches(path, text):
+    try:
+        if not os.path.exists(path):
+            return False
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read() == text
+    except Exception:
+        return False
+
+
 def get_movie_folder():
     return ensure_folder(xbmcvfs.translatePath(get_movie_strm_path()))
 
@@ -209,8 +219,12 @@ def build_movie_nfo(title, metadata=None):
 
 def write_movie_nfo(folder, safe_name, metadata=None, show_dialog=True):
     file_path = os.path.join(folder, safe_name + ".nfo")
+    content = build_movie_nfo(safe_name, metadata)
+    if text_file_matches(file_path, content):
+        return False
+
     try:
-        write_text_file(file_path, build_movie_nfo(safe_name, metadata))
+        write_text_file(file_path, content)
         xbmc.log("NFO ERSTELLT: " + file_path, xbmc.LOGINFO)
         return True
     except Exception as e:
@@ -226,11 +240,13 @@ def write_movie(filename, stream_url, subfolder=None, metadata=None, show_dialog
     category_folder = os.path.join(base_folder, clean_filename(subfolder)) if subfolder else base_folder
     folder = os.path.join(category_folder, safe_name)
     file_path = os.path.join(folder, safe_name + ".strm")
-    if not write_strm_file(file_path, stream_url, show_dialog):
+
+    changed = not text_file_matches(file_path, stream_url)
+    if changed and not write_strm_file(file_path, stream_url, show_dialog):
         return False
 
-    write_movie_nfo(folder, safe_name, metadata, show_dialog=False)
-    return folder
+    changed = write_movie_nfo(folder, safe_name, metadata, show_dialog=False) or changed
+    return {"folder": folder, "changed": changed}
 
 
 def write_episode(series_name, season_number, episode_number, episode_title, stream_url, show_dialog=True):
