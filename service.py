@@ -8,9 +8,11 @@ import xbmcaddon
 
 
 ADDON = xbmcaddon.Addon()
+ADDON_ID = ADDON.getAddonInfo("id")
 ADDON_PATH = ADDON.getAddonInfo("path")
 LIB_PATH = os.path.join(ADDON_PATH, "resources", "lib")
 UPDATE_CHECK_INTERVAL_SECONDS = 300
+STARTUP_REPOSITORY_UPDATE_DELAY_SECONDS = 5
 
 if LIB_PATH not in sys.path:
     sys.path.append(LIB_PATH)
@@ -26,6 +28,16 @@ def log(message, level=xbmc.LOGINFO):
 
 
 class XtreamStrmService(xbmc.Monitor):
+    def run_startup_repository_update(self):
+        try:
+            log("Repository-Update wird geprueft")
+            xbmc.executebuiltin("UpdateAddonRepos", True)
+            xbmc.executebuiltin("UpdateLocalAddons", True)
+            xbmc.executebuiltin("InstallAddon({0})".format(ADDON_ID), True)
+            log("Repository-Update und Addon-Updatepruefung abgeschlossen")
+        except Exception as exc:
+            log("Repository-/Addon-Updatepruefung fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
+
     def run_update_tasks(self):
         try:
             ensure_media_folders()
@@ -45,6 +57,9 @@ class XtreamStrmService(xbmc.Monitor):
         log("Service gestartet")
         if self.waitForAbort(20):
             return
+
+        if not self.waitForAbort(STARTUP_REPOSITORY_UPDATE_DELAY_SECONDS):
+            self.run_startup_repository_update()
 
         self.run_update_tasks()
         self.run_periodic_tasks()
