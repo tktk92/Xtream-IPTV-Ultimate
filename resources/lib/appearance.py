@@ -94,6 +94,32 @@ POWER_WIDGETS = (
     },
 )
 
+NETFLIX_STYLE_SETTINGS = {
+    "colorpalette": "basic",
+    "focuscolor.name": "FFE50914",
+    "focuscolorotherbar.name": "FFE50914",
+    "focuscolor2.name": "FFE50914",
+    "selectbarcolor.name": "FFE50914",
+    "selectotherbarcolor.name": "FFB20710",
+    "squarecolor.name": "FF1A1A1A",
+    "squarecolor2.name": "FFE50914",
+    "kodilogocolor.name": "FFE50914",
+    "kodilogocolorgradient.name": "FFB20710",
+    "backgroundbrightness": "35",
+    "backgroundbrightnessblur": "25",
+}
+
+NETFLIX_STYLE_BOOL_SETTINGS = {
+    "homemenu.netflix": True,
+    "furniture.coloredicons": False,
+    "osd.coloredicons": False,
+    "tmdbhelper.enablecolors": False,
+    "items.focus.glow": False,
+    "items.focus.glow.low": False,
+    "items.focus.glow.full": False,
+    "items.focus.zoom": True,
+}
+
 
 def _is_addon_installed(addon_id):
     return xbmc.getCondVisibility("System.HasAddon(%s)" % addon_id)
@@ -185,6 +211,10 @@ def _skinshortcuts_profile_path(filename):
     return _translate("special://profile/addon_data/%s/%s" % (SKINSHORTCUTS_ID, filename))
 
 
+def _skin_profile_settings_path():
+    return _translate("special://profile/addon_data/%s/settings.xml" % ARCTIC_ZEPHYR_RELOADED_ID)
+
+
 def _skin_default_mainmenu_path():
     return _translate("special://home/addons/%s/shortcuts/mainmenu.DATA.xml" % ARCTIC_ZEPHYR_RELOADED_ID)
 
@@ -265,6 +295,31 @@ def _configure_widgets():
     _save_json_list(properties_path, properties)
 
 
+def _setting_node(root, setting_id, setting_type):
+    node = root.find("./setting[@id='%s']" % setting_id)
+    if node is None:
+        node = ET.SubElement(root, "setting", {"id": setting_id, "type": setting_type})
+    else:
+        node.set("type", setting_type)
+    return node
+
+
+def _configure_netflix_colors():
+    settings_path = _skin_profile_settings_path()
+    if os.path.exists(settings_path):
+        root = ET.parse(settings_path).getroot()
+    else:
+        root = ET.Element("settings", {"version": "2"})
+
+    for setting_id, value in NETFLIX_STYLE_SETTINGS.items():
+        _setting_node(root, setting_id, "string").text = value
+
+    for setting_id, value in NETFLIX_STYLE_BOOL_SETTINGS.items():
+        _setting_node(root, setting_id, "bool").text = "true" if value else "false"
+
+    _write_xml(settings_path, root)
+
+
 def configure_arctic_zephyr_reloaded():
     dialog = xbmcgui.Dialog()
 
@@ -278,7 +333,7 @@ def configure_arctic_zephyr_reloaded():
     confirm = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.",
-        "Filme, Serien und Einstellungen bekommen passende Widgets. Power bleibt ohne Widget.",
+        "Widgets, dunkle Netflix-Farben und rote Akzente werden gesetzt.",
         "Soll die Skin-Konfiguration jetzt geschrieben werden?",
         "Abbrechen",
         "Fortfahren",
@@ -289,6 +344,7 @@ def configure_arctic_zephyr_reloaded():
     try:
         _configure_mainmenu_visibility()
         _configure_widgets()
+        _configure_netflix_colors()
         xbmcgui.Window(10000).setProperty("skinshortcuts-reloadmainmenu", "True")
         xbmc.executebuiltin(
             "RunScript(script.skinshortcuts,type=buildxml&mainmenuID=300&group=mainmenu|x1111|x1112|x1113|x1114|x1115|x1116|x1117|x1118|x1119|powermenu&levels=6)",
@@ -297,7 +353,7 @@ def configure_arctic_zephyr_reloaded():
         xbmc.executebuiltin("ReloadSkin()")
         dialog.notification(
             ARCTIC_ZEPHYR_RELOADED_NAME,
-            "Hauptmenue und Widgets gesetzt",
+            "Hauptmenue, Widgets und Farben gesetzt",
             xbmcgui.NOTIFICATION_INFO,
             5000,
         )
