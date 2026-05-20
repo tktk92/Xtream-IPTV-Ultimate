@@ -19,6 +19,7 @@ SERIES_SOURCE_NAME = "Xtream IPTV Ultimate Serien"
 MOVIE_SCRAPER_ID = "metadata.themoviedb.org.python"
 TV_SCRAPER_ID = "metadata.tvshows.themoviedb.org.python"
 LIBRARY_SETUP_STATE_FILE = "library_setup_state.json"
+SCRAPER_GZIP_PATCH_MARKER = "# Xtream IPTV Ultimate gzip patch"
 GERMAN_MOVIE_SCRAPER_SETTINGS = {
     "keeporiginaltitle": "false",
     "language": "de-DE",
@@ -34,6 +35,58 @@ GERMAN_TV_SCRAPER_SETTINGS = {
     "tmdbcertcountry": "de",
     "certprefix": "FSK ",
     "keeporiginaltitle": "false",
+}
+GERMAN_MOVIE_PATH_SETTINGS = {
+    "RatingS": "TMDb",
+    "add_tags": True,
+    "certprefix": "FSK ",
+    "enable_fanarttv_artwork": True,
+    "enable_tag_whitelist": False,
+    "fanart": True,
+    "fanarttv_clientkey": "",
+    "fanarttv_language": "de",
+    "fetch_posters": True,
+    "imdbanyway": False,
+    "keeporiginaltitle": False,
+    "keyart": True,
+    "landscape": True,
+    "language": "de-DE",
+    "lastUpdated": "0",
+    "maxartwork": 10,
+    "multiple_studios": False,
+    "originalUrl": "",
+    "previewUrl": "",
+    "prioritize_fanarttv_artwork": False,
+    "searchlanguage": "de-DE",
+    "tag_whitelist": ["aftercreditsstinger", "duringcreditsstinger"],
+    "tmdbcertcountry": "de",
+    "trailer": True,
+    "traktanyway": False,
+}
+GERMAN_TV_PATH_SETTINGS = {
+    "cat_keyart": True,
+    "cat_landscape": True,
+    "certprefix": "FSK ",
+    "enable_fanarttv": True,
+    "enab_trailer": True,
+    "fanarttv_clientkey": "",
+    "imdbanyway": False,
+    "keeporiginaltitle": False,
+    "keywordsastags": True,
+    "languageDetails": "de-DE",
+    "languageImages": "de-DE",
+    "lastUpdated": "0",
+    "originalUrl": "",
+    "players_opt": "Tubed",
+    "previewUrl": "",
+    "ratings": "TMDb",
+    "studio_country": False,
+    "tmdbanyway": True,
+    "tmdbcertcountry": "de",
+    "traktanyway": False,
+    "usecertprefix": True,
+    "usedifferentlangforimages": False,
+    "verboselog": False,
 }
 SCRAPER_LABELS = {
     MOVIE_SCRAPER_ID: "The Movie Database Python",
@@ -143,6 +196,7 @@ def configure_metadata_scrapers_german():
     install_metadata_scrapers(show_dialog=False)
     set_settings_xml_values(addon_settings_path(MOVIE_SCRAPER_ID), GERMAN_MOVIE_SCRAPER_SETTINGS)
     set_settings_xml_values(addon_settings_path(TV_SCRAPER_ID), GERMAN_TV_SCRAPER_SETTINGS)
+    patch_tmdb_movie_scraper_gzip()
     xbmc.log("[IPTV Addon] Kodi Scraper auf Deutsch konfiguriert", xbmc.LOGINFO)
 
 
@@ -190,6 +244,66 @@ def normalize_kodi_path(path):
     return path
 
 
+def settings_json(settings):
+    return json.dumps(settings, sort_keys=True, separators=(",", ":"))
+
+
+def patch_tmdb_movie_scraper_gzip():
+    try:
+        scraper_path = xbmcaddon.Addon(MOVIE_SCRAPER_ID).getAddonInfo("path")
+    except Exception:
+        return False
+
+    api_utils_path = os.path.join(scraper_path, "python", "lib", "tmdbscraper", "api_utils.py")
+    if not os.path.exists(api_utils_path):
+        return False
+
+    try:
+        text = read_text(api_utils_path)
+        if SCRAPER_GZIP_PATCH_MARKER in text:
+            return True
+
+        original = (
+            "import json\n"
+        )
+        replacement = (
+            "import json\n"
+            "import gzip\n"
+        )
+        if "import gzip" not in text:
+            text = text.replace(original, replacement, 1)
+
+        old_block = (
+            "    if resp_type.lower() == 'json':\n"
+            "        resp = json.loads(response.read().decode('utf-8'))\n"
+            "    else:\n"
+            "        resp = response.read().decode('utf-8')\n"
+        )
+        new_block = (
+            "    raw_response = response.read()\n"
+            "    " + SCRAPER_GZIP_PATCH_MARKER + "\n"
+            "    if raw_response[:2] == b'\\x1f\\x8b':\n"
+            "        raw_response = gzip.decompress(raw_response)\n"
+            "    if resp_type.lower() == 'json':\n"
+            "        resp = json.loads(raw_response.decode('utf-8'))\n"
+            "    else:\n"
+            "        resp = raw_response.decode('utf-8')\n"
+        )
+        if old_block not in text:
+            xbmc.log("[IPTV Addon] TMDb Scraper gzip Patch nicht angewendet: Codeblock nicht gefunden", xbmc.LOGWARNING)
+            return False
+
+        backup_path = api_utils_path + ".xtream.bak"
+        if not os.path.exists(backup_path):
+            write_text(backup_path, text)
+        write_text(api_utils_path, text.replace(old_block, new_block, 1))
+        xbmc.log("[IPTV Addon] TMDb Filmscraper gzip Patch angewendet", xbmc.LOGINFO)
+        return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] TMDb Filmscraper gzip Patch fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
+        return False
+
+
 def get_video_database_path():
     database_dir = translate("special://profile/Database")
     if not os.path.exists(database_dir):
@@ -225,12 +339,12 @@ def ensure_path_row(cursor, path_value):
     return cursor.lastrowid
 
 
-def set_path_content(cursor, path_value, content, scraper, recursive, use_folder_names):
+def set_path_content(cursor, path_value, content, scraper, recursive, use_folder_names, settings=None):
     path_id = ensure_path_row(cursor, path_value)
     cursor.execute(
-        "UPDATE path SET strContent = ?, strScraper = ?, scanRecursive = ?, useFolderNames = ?, noUpdate = 0, exclude = 0 "
+        "UPDATE path SET strContent = ?, strScraper = ?, scanRecursive = ?, useFolderNames = ?, strSettings = ?, noUpdate = 0, exclude = 0 "
         "WHERE idPath = ?",
-        (content, scraper, recursive, use_folder_names, path_id)
+        (content, scraper, recursive, use_folder_names, settings_json(settings or {}), path_id)
     )
 
 
@@ -259,8 +373,8 @@ def setup_video_library_content(show_dialog=False):
         conn = sqlite3.connect(db_path)
         try:
             cursor = conn.cursor()
-            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 0)
-            set_path_content(cursor, series_path, "tvshows", TV_SCRAPER_ID, 2147483647, 0)
+            set_path_content(cursor, movie_path, "movies", MOVIE_SCRAPER_ID, 2147483647, 0, GERMAN_MOVIE_PATH_SETTINGS)
+            set_path_content(cursor, series_path, "tvshows", TV_SCRAPER_ID, 2147483647, 0, GERMAN_TV_PATH_SETTINGS)
             conn.commit()
         finally:
             conn.close()
