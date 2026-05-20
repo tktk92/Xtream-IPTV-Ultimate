@@ -275,7 +275,9 @@ def configure_arctic_zephyr_reloaded():
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.",
         "Filme, Serien und Einstellungen bekommen passende Widgets. Power bleibt ohne Widget.",
-        "Fortfahren?",
+        "Soll die Skin-Konfiguration jetzt geschrieben werden?",
+        nolabel="Abbrechen",
+        yeslabel="Fortfahren",
     )
     if not confirm:
         return
@@ -310,7 +312,9 @@ def install_arctic_zephyr_reloaded():
         install = dialog.yesno(
             ARCTIC_ZEPHYR_RELOADED_NAME,
             "Der Skin wird aus dem offiziellen Kodi-Repository installiert.",
-            "Fortfahren?",
+            "Installation jetzt starten?",
+            nolabel="Abbrechen",
+            yeslabel="Installieren",
         )
         if not install:
             return
@@ -334,6 +338,8 @@ def install_arctic_zephyr_reloaded():
         ARCTIC_ZEPHYR_RELOADED_NAME,
         "Der Skin ist installiert.",
         "Jetzt als Kodi-Skin aktivieren?",
+        nolabel="Abbrechen",
+        yeslabel="Aktivieren",
     )
     if not switch:
         return
