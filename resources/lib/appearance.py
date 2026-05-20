@@ -172,8 +172,8 @@ def _open_skin_settings():
     xbmc.executebuiltin("SetFocus(30)")
 
 
-def _yesno(title, line1="", line2="", line3="", nolabel="Abbrechen", yeslabel="Ja"):
-    return xbmcgui.Dialog().yesno(title, line1, line2, line3, nolabel, yeslabel)
+def _yesno(title, message="", nolabel="Abbrechen", yeslabel="Ja"):
+    return xbmcgui.Dialog().yesno(title, message, nolabel=nolabel, yeslabel=yeslabel)
 
 
 def _translate(path):
@@ -332,11 +332,11 @@ def configure_arctic_zephyr_reloaded():
 
     confirm = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
-        "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.",
-        "Widgets, dunkle Netflix-Farben und rote Akzente werden gesetzt.",
+        "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.\n\n"
+        "Widgets, dunkle Netflix-Farben und rote Akzente werden gesetzt.\n\n"
         "Soll die Skin-Konfiguration jetzt geschrieben werden?",
-        "Abbrechen",
-        "Fortfahren",
+        nolabel="Abbrechen",
+        yeslabel="Fortfahren",
     )
     if not confirm:
         return
@@ -371,11 +371,10 @@ def install_arctic_zephyr_reloaded():
     if not _is_addon_installed(ARCTIC_ZEPHYR_RELOADED_ID):
         install = _yesno(
             ARCTIC_ZEPHYR_RELOADED_NAME,
-            "Der Skin wird aus dem offiziellen Kodi-Repository installiert.",
+            "Der Skin wird aus dem offiziellen Kodi-Repository installiert.\n\n"
             "Installation jetzt starten?",
-            "",
-            "Abbrechen",
-            "Installieren",
+            nolabel="Abbrechen",
+            yeslabel="Installieren",
         )
         if not install:
             return
@@ -397,11 +396,9 @@ def install_arctic_zephyr_reloaded():
 
     switch = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
-        "Der Skin ist installiert.",
-        "Jetzt als Kodi-Skin aktivieren?",
-        "",
-        "Abbrechen",
-        "Aktivieren",
+        "Der Skin ist installiert.\n\nJetzt als Kodi-Skin aktivieren?",
+        nolabel="Abbrechen",
+        yeslabel="Aktivieren",
     )
     if not switch:
         return
