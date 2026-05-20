@@ -11,7 +11,10 @@
         <setting id="series_strm_path" type="folder" label="Serien Speicherort" default="special://profile/addon_data/plugin.video.xtream.strm/strm/Serien"/>
     </category>
     <category label="Automatik">
-        <setting id="auto_tmdb_recent_import" type="bool" label="Beim Kodi-Start beliebte TMDb-Releases der letzten 6 Monate neu laden" default="true"/>
+        <setting id="auto_tmdb_recent_import" type="bool" label="Beim Kodi-Start neue Filme automatisch laden" default="true"/>
+        <setting id="auto_tmdb_recent_limit_per_language" type="number" label="Neue Filme pro Sprache" default="100"/>
+        <setting id="auto_tmdb_recent_months" type="number" label="Zeitraum neue Filme in Monaten" default="12"/>
+        <setting id="auto_tmdb_recent_max_pages" type="number" label="Maximale TMDb Seiten als Ergaenzung" default="40"/>
         <setting id="live_tv_check_streams" type="bool" label="Live-TV Sender beim Einrichten pruefen und defekte auslassen" default="false"/>
     </category>
 </settings>

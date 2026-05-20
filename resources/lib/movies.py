@@ -6,7 +6,7 @@ import shutil
 import xbmc
 import xbmcgui
 import xbmcplugin
-from common import HANDLE, build_url
+from common import ADDON, HANDLE, build_url
 from config import get_selected_languages
 from language_filter import extract_language_from_category
 from strm import write_movie, clean_filename, get_movie_folder
@@ -37,7 +37,10 @@ TMDB_LANGUAGE_CODES = {
     "Russisch": "ru"
 }
 
-TMDB_RECENT_FOLDER = "TMDb Beliebte Releases letzte 6 Monate"
+TMDB_RECENT_FOLDER = "Neue Filme letztes Jahr"
+DEFAULT_RECENT_LIMIT_PER_LANGUAGE = 100
+DEFAULT_RECENT_MONTHS = 12
+DEFAULT_RECENT_MAX_PAGES = 40
 
 
 def menu():
@@ -45,7 +48,7 @@ def menu():
         ("Filme suchen", {"mode": "search_movies"}),
         ("Kategorien", {"mode": "movie_languages"}),
         ("Neu hinzugefügt", {"mode": "movie_latest"}),
-        ("TMDb: beliebte Filme der letzten 6 Monate suchen und neu laden", {"mode": "reload_tmdb_recent_selected"}),
+        ("Neue Filme letztes Jahr suchen und neu laden", {"mode": "reload_tmdb_recent_selected"}),
     ]
 
     for label, params in items:
@@ -205,6 +208,14 @@ def get_selected_tmdb_language_codes():
     return codes
 
 
+def get_setting_int(key, default, minimum=1, maximum=1000):
+    try:
+        value = int(ADDON.getSetting(key).strip() or default)
+    except Exception:
+        value = default
+    return max(int(minimum), min(int(maximum), value))
+
+
 def get_index_movie_by_stream_id(stream_id):
     if not stream_id:
         return None
@@ -327,8 +338,16 @@ def reset_tmdb_recent_folder():
     return export_folder
 
 
-def reload_tmdb_recent_selected(months=6, max_pages=5):
+def reload_tmdb_recent_selected(months=None, max_pages=None):
     selected_languages = get_selected_languages()
+    months = int(months or get_setting_int("auto_tmdb_recent_months", DEFAULT_RECENT_MONTHS, 1, 36))
+    max_pages = int(max_pages or get_setting_int("auto_tmdb_recent_max_pages", DEFAULT_RECENT_MAX_PAGES, 1, 100))
+    limit_per_language = int(get_setting_int(
+        "auto_tmdb_recent_limit_per_language",
+        DEFAULT_RECENT_LIMIT_PER_LANGUAGE,
+        1,
+        1000
+    ))
 
     if not get_tmdb_api_key():
         xbmcgui.Dialog().ok(
@@ -380,6 +399,7 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
     xtream_candidates = get_xtream_movie_candidates(selected_languages)
     matches = []
     seen_stream_ids = set()
+    language_counts = {}
     total = len(tmdb_movies)
 
     for index, tmdb_movie in enumerate(tmdb_movies):
@@ -394,6 +414,9 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
 
         stream_id = match.get("stream_id")
         if stream_id in seen_stream_ids:
+            continue
+        match_language = extract_language_from_category(match.get("category_name", ""))
+        if language_counts.get(match_language, 0) >= limit_per_language:
             continue
 
         item = dict(match)
@@ -411,6 +434,7 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
         })
         matches.append(item)
         seen_stream_ids.add(stream_id)
+        language_counts[match_language] = language_counts.get(match_language, 0) + 1
 
     if not matches:
         progress.close()
