@@ -182,6 +182,10 @@ def run_popular_recent_import(months=6, max_pages=5):
             "tmdb_id": tmdb_movie.get("id"),
             "tmdb_title": tmdb_movie.get("title") or tmdb_movie.get("original_title") or match.get("name", "Film"),
             "tmdb_original_title": tmdb_movie.get("original_title", ""),
+            "overview": tmdb_movie.get("overview", ""),
+            "poster_path": tmdb_movie.get("poster_path", ""),
+            "backdrop_path": tmdb_movie.get("backdrop_path", ""),
+            "rating": tmdb_movie.get("vote_average", ""),
             "release_date": release_date
         })
         matches.append(item)

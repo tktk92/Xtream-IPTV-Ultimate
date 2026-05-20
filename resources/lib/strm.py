@@ -9,6 +9,8 @@ import xbmcgui
 import xbmcvfs
 from common import get_movie_strm_path, get_series_strm_path
 
+TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+
 
 def clean_filename(name):
     if not name:
@@ -149,18 +151,58 @@ def movie_year_from_title(title):
 
 def build_movie_nfo(title, metadata=None):
     metadata = metadata or {}
-    clean_title = str(metadata.get("tmdb_title") or title or "Film").strip()
+    clean_title = str(metadata.get("tmdb_title") or metadata.get("title") or title or "Film").strip()
+    original_title = str(metadata.get("tmdb_original_title") or metadata.get("original_title") or "").strip()
     year = str(metadata.get("release_year") or movie_year_from_title(title) or "").strip()
+    release_date = str(metadata.get("release_date") or metadata.get("premiered") or "").strip()
     tmdb_id = str(metadata.get("tmdb_id") or "").strip()
+    plot = str(metadata.get("plot") or metadata.get("overview") or "").strip()
+    runtime = str(metadata.get("runtime") or "").strip()
+    rating = str(metadata.get("rating") or metadata.get("vote_average") or "").strip()
+    poster_path = str(metadata.get("poster_path") or "").strip()
+    backdrop_path = str(metadata.get("backdrop_path") or "").strip()
+    poster_url = str(metadata.get("poster") or metadata.get("thumb") or "").strip()
+    fanart_url = str(metadata.get("fanart") or "").strip()
+
+    if poster_path and poster_path.startswith("/"):
+        poster_url = TMDB_IMAGE_BASE + poster_path
+    if backdrop_path and backdrop_path.startswith("/"):
+        fanart_url = TMDB_IMAGE_BASE + backdrop_path
 
     lines = ["<movie>"]
     lines.append("  <title>{0}</title>".format(escape(clean_title)))
+    if original_title:
+        lines.append("  <originaltitle>{0}</originaltitle>".format(escape(original_title)))
+    if plot:
+        lines.append("  <plot>{0}</plot>".format(escape(plot)))
+        lines.append("  <outline>{0}</outline>".format(escape(plot)))
     if year:
         lines.append("  <year>{0}</year>".format(escape(year)))
+    if release_date:
+        lines.append("  <premiered>{0}</premiered>".format(escape(release_date)))
+        lines.append("  <releasedate>{0}</releasedate>".format(escape(release_date)))
+    if runtime and runtime.isdigit():
+        lines.append("  <runtime>{0}</runtime>".format(escape(runtime)))
+    if rating:
+        lines.append("  <rating>{0}</rating>".format(escape(rating)))
     if tmdb_id and tmdb_id != "0":
         lines.append('  <uniqueid type="tmdb" default="true">{0}</uniqueid>'.format(escape(tmdb_id)))
         lines.append("  <tmdbid>{0}</tmdbid>".format(escape(tmdb_id)))
         lines.append("  <id>{0}</id>".format(escape(tmdb_id)))
+        lines.append("  <url cache=\"tmdb-{0}.json\">https://www.themoviedb.org/movie/{0}</url>".format(escape(tmdb_id)))
+    for genre in metadata.get("genres", []) or []:
+        if isinstance(genre, dict):
+            genre_name = genre.get("name")
+        else:
+            genre_name = genre
+        if genre_name:
+            lines.append("  <genre>{0}</genre>".format(escape(str(genre_name))))
+    if poster_url:
+        lines.append("  <thumb aspect=\"poster\">{0}</thumb>".format(escape(poster_url)))
+    if fanart_url:
+        lines.append("  <fanart>")
+        lines.append("    <thumb>{0}</thumb>".format(escape(fanart_url)))
+        lines.append("  </fanart>")
     lines.append("</movie>")
     return "\n".join(lines) + "\n"
 

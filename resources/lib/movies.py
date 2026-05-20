@@ -14,6 +14,7 @@ from movie_lookup import (
     choose_movie_title,
     get_tmdb_api_key,
     title_from_tmdb_id,
+    get_tmdb_movie_by_id,
     discover_recent_movies,
     search_tmdb_movie_fuzzy,
     format_tmdb_search_label
@@ -242,10 +243,40 @@ def get_movie_export_metadata(stream_id):
     if not index_movie:
         return {}
 
-    return {
+    metadata = {
         "tmdb_id": index_movie.get("tmdb_id"),
         "metadata_checked_at": index_movie.get("metadata_checked_at")
     }
+    return enrich_movie_metadata(metadata)
+
+
+def enrich_movie_metadata(metadata):
+    metadata = dict(metadata or {})
+    tmdb_id = metadata.get("tmdb_id")
+    if not tmdb_id or str(tmdb_id) == "0":
+        return metadata
+
+    details = get_tmdb_movie_by_id(tmdb_id, "de-DE")
+    if not details:
+        details = get_tmdb_movie_by_id(tmdb_id, "en-US")
+    if not details:
+        return metadata
+
+    release_date = details.get("release_date") or metadata.get("release_date") or ""
+    metadata.update({
+        "tmdb_id": details.get("id") or tmdb_id,
+        "tmdb_title": details.get("title") or metadata.get("tmdb_title"),
+        "tmdb_original_title": details.get("original_title") or metadata.get("tmdb_original_title"),
+        "overview": details.get("overview") or metadata.get("overview"),
+        "release_date": release_date,
+        "release_year": release_date[:4] if len(release_date) >= 4 else metadata.get("release_year"),
+        "runtime": details.get("runtime") or metadata.get("runtime"),
+        "rating": details.get("vote_average") or metadata.get("rating"),
+        "genres": details.get("genres") or metadata.get("genres"),
+        "poster_path": details.get("poster_path") or metadata.get("poster_path"),
+        "backdrop_path": details.get("backdrop_path") or metadata.get("backdrop_path"),
+    })
+    return metadata
 
 
 def choose_movie_export_title(stream_id, name):
@@ -371,6 +402,10 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
             "tmdb_id": tmdb_movie.get("id"),
             "tmdb_title": tmdb_movie.get("title") or tmdb_movie.get("original_title") or match.get("name", "Film"),
             "tmdb_original_title": tmdb_movie.get("original_title", ""),
+            "overview": tmdb_movie.get("overview", ""),
+            "poster_path": tmdb_movie.get("poster_path", ""),
+            "backdrop_path": tmdb_movie.get("backdrop_path", ""),
+            "rating": tmdb_movie.get("vote_average", ""),
             "release_date": release_date,
             "release_year": release_date[:4] if len(release_date) >= 4 else ""
         })
@@ -407,7 +442,7 @@ def reload_tmdb_recent_selected(months=6, max_pages=5):
                 continue
 
             stream_url = xtream.movie_url(stream_id, movie.get("container_extension", "mp4"))
-            if write_movie(name, stream_url, TMDB_RECENT_FOLDER, metadata=movie, show_dialog=False):
+            if write_movie(name, stream_url, TMDB_RECENT_FOLDER, metadata=enrich_movie_metadata(movie), show_dialog=False):
                 created += 1
             else:
                 failed.append(name + " - STRM konnte nicht erstellt werden")
@@ -614,7 +649,8 @@ def export_category(category_id, category_name):
                 "tmdb_id": index_movie.get("tmdb_id"),
                 "metadata_checked_at": index_movie.get("metadata_checked_at")
             })
-        clean_name = get_movie_export_title(movie)
+        movie_metadata = enrich_movie_metadata(movie)
+        clean_name = get_movie_export_title(movie_metadata)
         clean_category = clean_filename(category_name) if category_name else None
         stream_id = movie.get("stream_id")
         extension = movie.get("container_extension", "mp4")
@@ -626,7 +662,7 @@ def export_category(category_id, category_name):
 
             stream_url = xtream.movie_url(stream_id, extension)
 
-            if write_movie(clean_name, stream_url, clean_category, metadata=movie, show_dialog=False):
+            if write_movie(clean_name, stream_url, clean_category, metadata=movie_metadata, show_dialog=False):
                 created += 1
             else:
                 failed.append(clean_name + " - STRM konnte nicht erstellt werden")
