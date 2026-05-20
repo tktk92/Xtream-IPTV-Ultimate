@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import gzip
 import re
 import urllib.parse
 import urllib.request
@@ -28,6 +29,29 @@ NOISE_WORDS = [
     "WEB-DL", "WEBDL", "WEBRIP", "WEB", "BLURAY", "BDRIP", "BRRIP", "HDRIP",
     "X264", "X265", "H264", "H265", "HEVC", "AAC", "AC3", "DTS"
 ]
+
+
+def load_tmdb_json(url, timeout=10):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Xtream IPTV Ultimate",
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+        }
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        raw = response.read()
+        encoding = ""
+        try:
+            encoding = response.headers.get("Content-Encoding", "")
+        except Exception:
+            encoding = ""
+
+        if "gzip" in encoding.lower() or raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+
+        return json.loads(raw.decode("utf-8", errors="replace"))
 
 
 def get_tmdb_api_key():
@@ -82,11 +106,8 @@ def search_tmdb_movie(query, language="de-DE"):
     url = TMDB_API_URL + "?" + urllib.parse.urlencode(params)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Xtream IPTV Ultimate"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = response.read().decode("utf-8")
-            payload = json.loads(data)
-            return payload.get("results", []) or []
+        payload = load_tmdb_json(url)
+        return payload.get("results", []) or []
     except Exception as e:
         xbmc.log("[IPTV Addon] TMDb Suche fehlgeschlagen: " + str(e), xbmc.LOGERROR)
         return []
@@ -109,12 +130,9 @@ def get_tmdb_movie_by_id(tmdb_id, language="de-DE"):
     url = TMDB_MOVIE_DETAILS_URL.format(urllib.parse.quote(tmdb_id)) + "?" + urllib.parse.urlencode(params)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Xtream IPTV Ultimate"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = response.read().decode("utf-8")
-            payload = json.loads(data)
-            TMDB_MOVIE_ID_CACHE[cache_key] = payload
-            return payload
+        payload = load_tmdb_json(url)
+        TMDB_MOVIE_ID_CACHE[cache_key] = payload
+        return payload
     except Exception as e:
         xbmc.log("[IPTV Addon] TMDb Film-ID Suche fehlgeschlagen: " + str(tmdb_id) + " | " + str(e), xbmc.LOGERROR)
         TMDB_MOVIE_ID_CACHE[cache_key] = None
@@ -136,11 +154,8 @@ def search_tmdb_tv(query, language="de-DE"):
     url = TMDB_TV_SEARCH_URL + "?" + urllib.parse.urlencode(params)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Xtream IPTV Ultimate"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = response.read().decode("utf-8")
-            payload = json.loads(data)
-            return payload.get("results", []) or []
+        payload = load_tmdb_json(url)
+        return payload.get("results", []) or []
     except Exception as e:
         xbmc.log("[IPTV Addon] TMDb TV-Suche fehlgeschlagen: " + str(e), xbmc.LOGERROR)
         return []
@@ -163,12 +178,9 @@ def get_tmdb_tv_by_id(tmdb_id, language="de-DE"):
     url = TMDB_TV_DETAILS_URL.format(urllib.parse.quote(tmdb_id)) + "?" + urllib.parse.urlencode(params)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Xtream IPTV Ultimate"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = response.read().decode("utf-8")
-            payload = json.loads(data)
-            TMDB_TV_ID_CACHE[cache_key] = payload
-            return payload
+        payload = load_tmdb_json(url)
+        TMDB_TV_ID_CACHE[cache_key] = payload
+        return payload
     except Exception as e:
         xbmc.log("[IPTV Addon] TMDb Serien-ID Suche fehlgeschlagen: " + str(tmdb_id) + " | " + str(e), xbmc.LOGERROR)
         TMDB_TV_ID_CACHE[cache_key] = None
@@ -480,9 +492,7 @@ def discover_recent_movies(
             url = TMDB_DISCOVER_URL + "?" + urllib.parse.urlencode(params)
 
             try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Xtream IPTV Ultimate"})
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    payload = json.loads(response.read().decode("utf-8"))
+                payload = load_tmdb_json(url)
             except Exception as e:
                 xbmc.log("[IPTV Addon] TMDb Discover fehlgeschlagen: " + str(e), xbmc.LOGERROR)
                 break
