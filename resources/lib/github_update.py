@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 
+import os
 import re
+import shutil
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
+import zipfile
+import tempfile
 
 import xbmc
 import xbmcaddon
+import xbmcgui
+import xbmcvfs
 
 
 CURRENT_ADDON_ID = "plugin.video.xtream.strm"
@@ -14,6 +20,11 @@ CURRENT_ADDON_ID = "plugin.video.xtream.strm"
 GITHUB_ADDONS_XML_URLS = (
     "https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/addons.xml",
     "https://tktk92.github.io/Xtream-IPTV-Ultimate/repo/addons.xml",
+)
+
+REPO_ZIP_BASE_URLS = (
+    "https://tktk92.github.io/Xtream-IPTV-Ultimate/repo/zips",
+    "https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/zips",
 )
 
 MANAGED_ADDONS = (
@@ -52,6 +63,19 @@ def _fetch_text(url, timeout=15):
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read().decode("utf-8", "replace")
+
+
+def _download_file(url, target_path, timeout=60):
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Xtream-IPTV-Ultimate-Kodi-Updater",
+            "Cache-Control": "no-cache",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        with open(target_path, "wb") as handle:
+            shutil.copyfileobj(response, handle)
 
 
 def _fetch_github_addons_xml():
@@ -106,6 +130,117 @@ def _install_addon(addon_id):
     xbmc.executebuiltin("InstallAddon({0})".format(addon_id))
     xbmc.sleep(500)
     xbmc.executebuiltin("UpdateLocalAddons")
+
+
+def _translate_path(path):
+    try:
+        return xbmcvfs.translatePath(path)
+    except Exception:
+        return xbmc.translatePath(path)
+
+
+def _addon_zip_urls(addon_id, version):
+    file_name = "{0}-{1}.zip".format(addon_id, version)
+    return ["{0}/{1}/{2}".format(base.rstrip("/"), addon_id, file_name) for base in REPO_ZIP_BASE_URLS]
+
+
+def _copy_tree(source_dir, target_dir):
+    if not os.path.isdir(target_dir):
+        os.makedirs(target_dir)
+
+    source_entries = set(os.listdir(source_dir))
+
+    for name in source_entries:
+        source_path = os.path.join(source_dir, name)
+        target_path = os.path.join(target_dir, name)
+
+        if os.path.isdir(source_path):
+            _copy_tree(source_path, target_path)
+        else:
+            parent = os.path.dirname(target_path)
+            if parent and not os.path.isdir(parent):
+                os.makedirs(parent)
+            shutil.copy2(source_path, target_path)
+
+    for name in os.listdir(target_dir):
+        if name in source_entries:
+            continue
+
+        stale_path = os.path.join(target_dir, name)
+        try:
+            if os.path.isdir(stale_path):
+                shutil.rmtree(stale_path)
+            else:
+                os.remove(stale_path)
+        except Exception as exc:
+            log("Veraltete Skin-Datei konnte nicht entfernt werden: {0} | {1}".format(stale_path, exc), xbmc.LOGWARNING)
+
+
+def _manual_install_addon_zip(addon_id, version):
+    temp_dir = tempfile.mkdtemp(prefix="xtream_update_")
+    try:
+        zip_path = os.path.join(temp_dir, "{0}-{1}.zip".format(addon_id, version))
+        last_error = None
+        downloaded_url = None
+
+        for url in _addon_zip_urls(addon_id, version):
+            try:
+                _download_file(url, zip_path)
+                downloaded_url = url
+                break
+            except Exception as exc:
+                last_error = exc
+                log("Addon-Zip konnte nicht geladen werden: {0} | {1}".format(url, exc), xbmc.LOGWARNING)
+
+        if not downloaded_url:
+            raise Exception(last_error or "Addon-Zip nicht erreichbar")
+
+        extract_dir = os.path.join(temp_dir, "extract")
+        with zipfile.ZipFile(zip_path, "r") as archive:
+            archive.extractall(extract_dir)
+
+        source_dir = os.path.join(extract_dir, addon_id)
+        if not os.path.isdir(source_dir):
+            raise Exception("Addon-Zip enthaelt keinen Ordner " + addon_id)
+
+        addons_dir = _translate_path("special://home/addons")
+        target_dir = os.path.join(addons_dir, addon_id)
+        _copy_tree(source_dir, target_dir)
+
+        xbmc.executebuiltin("UpdateLocalAddons")
+        xbmc.sleep(1000)
+
+        log("Addon-Zip manuell installiert: {0} {1} von {2}".format(addon_id, version, downloaded_url))
+        return target_dir
+    finally:
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception:
+            pass
+
+
+def _offer_restart_for_skin_update(local_version, remote_version):
+    message = (
+        "Ultimate IPTV Skin wurde aktualisiert:\n\n"
+        "{0} -> {1}\n\n"
+        "Kodi muss neu gestartet werden, damit der neue Skin vollstaendig geladen wird."
+    ).format(local_version, remote_version)
+    restart = xbmcgui.Dialog().yesno(
+        "Skin-Update abgeschlossen",
+        message,
+        nolabel="Spaeter",
+        yeslabel="Jetzt neu starten",
+    )
+    if restart:
+        log("Benutzer bestaetigt Neustart nach Skin-Update.")
+        xbmc.executebuiltin("RestartApp")
+    else:
+        xbmcgui.Dialog().notification(
+            "Skin-Update",
+            "Neustart erforderlich",
+            xbmcgui.NOTIFICATION_INFO,
+            6000,
+        )
 
 
 def _busy_reasons():
@@ -207,11 +342,23 @@ def check_github_updates(monitor=None):
 
     for addon_id, local_version, remote_version in updates:
         try:
-            _install_addon(addon_id)
+            if addon_id == "skin.xtream.ultimate":
+                _manual_install_addon_zip(addon_id, remote_version)
+            else:
+                _install_addon(addon_id)
+
             new_version = _installed_version(addon_id)
             if new_version == remote_version or _is_newer(new_version, local_version):
                 installed.append((addon_id, local_version, new_version))
                 log("Addon aktualisiert: {0} {1}->{2}".format(addon_id, local_version, new_version))
+                if addon_id == "skin.xtream.ultimate":
+                    log(
+                        "Skin-Update manuell installiert: {0}->{1}, Neustart erforderlich".format(
+                            local_version,
+                            new_version,
+                        )
+                    )
+                    _offer_restart_for_skin_update(local_version, new_version)
             else:
                 log(
                     "Addon-Update nicht uebernommen: {0} lokal={1}, erwartet={2}".format(
