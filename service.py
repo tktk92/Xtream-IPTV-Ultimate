@@ -20,7 +20,7 @@ if LIB_PATH not in sys.path:
     sys.path.append(LIB_PATH)
 
 from auto_import import run_startup_import
-from appearance import apply_arctic_zephyr_reloaded_after_update
+from appearance import apply_arctic_zephyr_reloaded_after_update, configure_youtube_http_server
 from github_update import check_github_updates
 from kodi_library import apply_kodi_library_update_after_addon_update
 from profiles import apply_profiles_after_update
@@ -35,9 +35,9 @@ class XtreamStrmService(xbmc.Monitor):
     def run_startup_repository_update(self):
         try:
             log("GitHub-/Repository-Update wird geprueft")
-            github_updates = check_github_updates()
-            xbmc.executebuiltin("UpdateAddonRepos", True)
-            xbmc.executebuiltin("UpdateLocalAddons", True)
+            github_updates = check_github_updates(monitor=self)
+            xbmc.executebuiltin("UpdateAddonRepos")
+            xbmc.executebuiltin("UpdateLocalAddons")
             log("GitHub-/Repository-Updatepruefung abgeschlossen: {0}".format(len(github_updates)))
         except Exception as exc:
             log("Repository-/Addon-Updatepruefung fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
@@ -58,6 +58,7 @@ class XtreamStrmService(xbmc.Monitor):
                 progress.update(10, "Pruefe Kodi-Profile und LoginScreen...\n\nBitte Kodi nicht schliessen.")
 
             ensure_media_folders()
+            configure_youtube_http_server(show_dialog=False)
             profiles_updated = apply_profiles_after_update(progress=progress)
 
             if profiles_updated and progress:

@@ -2,6 +2,7 @@
 
 import json
 import os
+import socket
 import time
 import xml.etree.ElementTree as ET
 
@@ -19,6 +20,7 @@ YOUTUBE_ADDON_ID = "plugin.video.youtube"
 YOUTUBE_ADDON_NAME = "YouTube"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
 SKIN_SETUP_STATE_FILE = "skin_setup_state.json"
+YOUTUBE_HTTP_PORT_RANGE = range(52152, 52252)
 
 MAINMENU_ITEMS = (
     {
@@ -194,6 +196,65 @@ def _install_and_enable_addon(addon_id, timeout=90):
         xbmc.executebuiltin("EnableAddon(%s)" % addon_id, True)
 
     return _wait_for_addon(addon_id, timeout=10)
+
+
+def _port_is_free(host, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, int(port)))
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+def _find_youtube_http_port(current_port=""):
+    try:
+        current = int(str(current_port or "").strip())
+        if current > 0 and _port_is_free("127.0.0.1", current):
+            return current
+    except Exception:
+        pass
+
+    for port in YOUTUBE_HTTP_PORT_RANGE:
+        if _port_is_free("127.0.0.1", port):
+            return port
+
+    return 52152
+
+
+def configure_youtube_http_server(show_dialog=False):
+    if not _is_addon_installed(YOUTUBE_ADDON_ID):
+        return False
+
+    try:
+        addon = xbmcaddon.Addon(YOUTUBE_ADDON_ID)
+        current_port = addon.getSetting("kodion.http.port")
+        port = _find_youtube_http_port(current_port)
+        addon.setSetting("kodion.http.listen", "127.0.0.1")
+        addon.setSetting("kodion.http.port", str(port))
+        addon.setSetting("youtube.api.config.page", "false")
+        addon.setSetting("kodion.support.alternative_player", "false")
+        xbmc.log(
+            "[IPTV Addon] YouTube HTTP-Server konfiguriert: 127.0.0.1:{0}".format(port),
+            xbmc.LOGINFO,
+        )
+        if show_dialog:
+            xbmcgui.Dialog().notification(
+                YOUTUBE_ADDON_NAME,
+                "HTTP-Server auf lokalen freien Port gesetzt",
+                xbmcgui.NOTIFICATION_INFO,
+                4000,
+            )
+        return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] YouTube HTTP-Server Konfiguration fehlgeschlagen: %s" % exc, xbmc.LOGWARNING)
+        return False
 
 
 def _open_skin_settings():
@@ -445,6 +506,7 @@ def _apply_arctic_zephyr_reloaded_settings(clear_cache=True):
 
 def install_youtube_addon(show_dialog=True):
     if _install_and_enable_addon(YOUTUBE_ADDON_ID):
+        configure_youtube_http_server(show_dialog=False)
         if show_dialog:
             xbmcgui.Dialog().notification(
                 YOUTUBE_ADDON_NAME,

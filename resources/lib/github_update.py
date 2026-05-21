@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -19,6 +20,21 @@ MANAGED_ADDONS = (
     "repository.xtream.iptv.ultimate",
     "plugin.video.xtream.strm",
     "skin.xtream.ultimate",
+)
+
+IDLE_STABLE_SECONDS = 10
+IDLE_MAX_WAIT_SECONDS = 180
+IDLE_POLL_SECONDS = 2
+
+BUSY_CONDITIONS = (
+    ("Video-Bibliothek wird aktualisiert", "Library.IsScanningVideo"),
+    ("Musik-Bibliothek wird aktualisiert", "Library.IsScanningMusic"),
+    ("Player ist aktiv", "Player.HasMedia"),
+    ("Kodi zeigt einen Fortschrittsdialog", "Window.IsVisible(progressdialog)"),
+    ("Kodi zeigt einen Fortschrittsdialog", "Window.IsVisible(extendedprogressdialog)"),
+    ("Kodi ist beschaeftigt", "Window.IsVisible(busydialog)"),
+    ("Kodi ist beschaeftigt", "Window.IsVisible(busydialognocancel)"),
+    ("Kodi zeigt einen Dialog", "System.HasModalDialog"),
 )
 
 
@@ -87,12 +103,57 @@ def _installed_version(addon_id):
 
 
 def _install_addon(addon_id):
-    xbmc.executebuiltin("InstallAddon({0})".format(addon_id), True)
+    xbmc.executebuiltin("InstallAddon({0})".format(addon_id))
     xbmc.sleep(500)
-    xbmc.executebuiltin("UpdateLocalAddons", True)
+    xbmc.executebuiltin("UpdateLocalAddons")
 
 
-def check_github_updates():
+def _busy_reasons():
+    reasons = []
+    for reason, condition in BUSY_CONDITIONS:
+        try:
+            if xbmc.getCondVisibility(condition) and reason not in reasons:
+                reasons.append(reason)
+        except Exception:
+            continue
+    return reasons
+
+
+def _wait_for_kodi_idle(monitor=None, max_wait=IDLE_MAX_WAIT_SECONDS, stable_seconds=IDLE_STABLE_SECONDS):
+    deadline = time.time() + int(max_wait)
+    idle_since = None
+    last_log = 0
+
+    while time.time() < deadline:
+        if monitor and monitor.abortRequested():
+            log("Update abgebrochen, Kodi-Service beendet sich.", xbmc.LOGWARNING)
+            return False
+
+        reasons = _busy_reasons()
+        if not reasons:
+            if idle_since is None:
+                idle_since = time.time()
+                log("Kodi ist idle, warte kurze Stabilitaetsphase vor dem Update.")
+            elif time.time() - idle_since >= int(stable_seconds):
+                return True
+        else:
+            idle_since = None
+            if time.time() - last_log >= 15:
+                log("Update wartet, Kodi ist beschaeftigt: " + ", ".join(reasons), xbmc.LOGINFO)
+                last_log = time.time()
+
+        if monitor:
+            if monitor.waitForAbort(IDLE_POLL_SECONDS):
+                log("Update abgebrochen, Kodi-Service beendet sich.", xbmc.LOGWARNING)
+                return False
+        else:
+            xbmc.sleep(IDLE_POLL_SECONDS * 1000)
+
+    log("Update uebersprungen, Kodi wurde nicht rechtzeitig idle.", xbmc.LOGWARNING)
+    return False
+
+
+def check_github_updates(monitor=None):
     try:
         remote_versions = _parse_versions(_fetch_github_addons_xml())
     except Exception as exc:
@@ -115,24 +176,36 @@ def check_github_updates():
 
     log("GitHub-Updates gefunden: " + ", ".join("{0} {1}->{2}".format(*item) for item in updates))
 
-    xbmc.executebuiltin("UpdateAddonRepos", True)
-    xbmc.executebuiltin("UpdateLocalAddons", True)
+    if not _wait_for_kodi_idle(monitor=monitor):
+        return []
+
+    xbmc.executebuiltin("UpdateAddonRepos")
+    xbmc.executebuiltin("UpdateLocalAddons")
 
     installed = []
     pending = []
-    for addon_id, local_version, remote_version in updates:
-        if addon_id == CURRENT_ADDON_ID:
-            pending.append((addon_id, local_version, remote_version))
-            log(
-                "Laufendes Addon wird nicht synchron aus dem eigenen Service installiert: {0} {1}->{2}".format(
-                    addon_id,
-                    local_version,
-                    remote_version,
-                ),
-                xbmc.LOGWARNING,
-            )
-            continue
+    has_current_addon_update = any(addon_id == CURRENT_ADDON_ID for addon_id, _local, _remote in updates)
 
+    if has_current_addon_update:
+        for addon_id, local_version, remote_version in updates:
+            if addon_id == CURRENT_ADDON_ID:
+                pending.append((addon_id, local_version, remote_version))
+                log(
+                    "Laufendes Addon wird nur vorgemerkt: {0} {1}->{2}".format(
+                        addon_id,
+                        local_version,
+                        remote_version,
+                    ),
+                    xbmc.LOGWARNING,
+                )
+
+        log(
+            "Update des laufenden Addons erkannt. Keine synchronen Zusatzinstallationen in diesem Service-Lauf.",
+            xbmc.LOGWARNING,
+        )
+        return installed
+
+    for addon_id, local_version, remote_version in updates:
         try:
             _install_addon(addon_id)
             new_version = _installed_version(addon_id)
@@ -150,10 +223,5 @@ def check_github_updates():
                 )
         except Exception as exc:
             log("Addon-Update fehlgeschlagen: {0} | {1}".format(addon_id, exc), xbmc.LOGERROR)
-
-    if pending:
-        xbmc.executebuiltin("UpdateAddonRepos")
-        xbmc.executebuiltin("UpdateLocalAddons")
-        log("Plugin-Update vorgemerkt. Kodi sollte das Update ueber das Repository nachladen oder nach Neustart anbieten.", xbmc.LOGWARNING)
 
     return installed
