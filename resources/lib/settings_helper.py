@@ -150,7 +150,7 @@ def run_setup_wizard(force=False):
         update_setup_progress(progress, 35, "Kodi-Scraper werden installiert und auf Deutsch eingerichtet.", "ca. 3-8 Minuten")
         kodi_library.install_and_configure_metadata_scrapers(show_dialog=False)
 
-        update_setup_progress(progress, 48, "YouTube und Arctic Zephyr Reloaded werden fuer Trailer vorbereitet.", "ca. 2-5 Minuten")
+        update_setup_progress(progress, 48, "YouTube und der Ultimate IPTV Skin werden fuer Trailer vorbereitet.", "ca. 2-5 Minuten")
         appearance.install_youtube_addon(show_dialog=False)
         appearance.setup_arctic_zephyr_reloaded(show_dialog=False)
 

@@ -129,8 +129,8 @@ def settings_menu():
         ("Ersteinrichtung starten", {"mode": "setup_wizard"}, False),
         ("IPTV Zugangsdaten", {"mode": "open_settings"}, False),
         ("Speicherpfade", {"mode": "open_settings"}, False),
-        ("Arctic: Zephyr - Reloaded installieren", {"mode": "install_arctic_zephyr_reloaded"}, False),
-        ("Arctic: Zephyr - Reloaded einrichten", {"mode": "configure_arctic_zephyr_reloaded"}, False),
+        ("Ultimate IPTV Skin installieren", {"mode": "install_arctic_zephyr_reloaded"}, False),
+        ("Ultimate IPTV Skin einrichten", {"mode": "configure_arctic_zephyr_reloaded"}, False),
     ]
     add_directory_items(items)
 

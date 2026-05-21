@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon id="skin.xtream.ultimate" version="0.1.0" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
+    <requires>
+        <import addon="xbmc.gui" version="5.17.0"/>
+        <import addon="script.skinshortcuts" version="0.4.0"/>
+        <import addon="script.globalsearch" version="5.0.0"/>
+        <import addon="script.image.resource.select" version="0.0.5"/>
+        <import addon="resource.images.weathericons.white" version="0.0.6"/>
+        <import addon="script.embuary.info" version="0.0.1"/>
+        <import addon="script.embuary.helper" version="1.2.14"/>
+        <import addon="plugin.video.themoviedb.helper" version="0.0.1"/>
+    </requires>
+    <extension point="xbmc.gui.skin" defaultthemename="Textures.xbt" debugging="false" effectslowdown="1">
+        <res width="1920" height="1080" aspect="16:9" default="true" folder="1080i"/>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="de_DE">Ultimate IPTV Skin fuer Xtream IPTV Ultimate</summary>
+        <summary lang="en_GB">Ultimate IPTV skin for Xtream IPTV Ultimate</summary>
+        <description lang="de_DE">Ein Fork von Arctic: Zephyr - Reloaded, angepasst fuer Xtream IPTV Ultimate mit Streaming-fokussiertem Startbildschirm.</description>
+        <description lang="en_GB">A fork of Arctic: Zephyr - Reloaded tailored for Xtream IPTV Ultimate with a streaming-focused home screen.</description>
+        <disclaimer lang="de_DE">Basiert auf Arctic: Zephyr - Reloaded von jurialmunkey und beatmasterrs.</disclaimer>
+        <platform>all</platform>
+        <license>Creative Commons Non Commercial 3.0 License</license>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+        <news>0.1.0[CR]- Initialer Ultimate IPTV Skin-Fork.[CR]- Eigenes Branding auf dem Startbildschirm.</news>
+    </extension>
+</addon>

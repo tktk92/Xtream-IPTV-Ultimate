@@ -13,8 +13,8 @@ import xbmcvfs
 from common import ADDON_PROFILE
 
 
-ARCTIC_ZEPHYR_RELOADED_ID = "skin.arctic.zephyr.mod"
-ARCTIC_ZEPHYR_RELOADED_NAME = "Arctic: Zephyr - Reloaded"
+ARCTIC_ZEPHYR_RELOADED_ID = "skin.xtream.ultimate"
+ARCTIC_ZEPHYR_RELOADED_NAME = "Ultimate IPTV"
 YOUTUBE_ADDON_ID = "plugin.video.youtube"
 YOUTUBE_ADDON_NAME = "YouTube"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
@@ -490,7 +490,7 @@ def setup_arctic_zephyr_reloaded(show_dialog=False):
             xbmcgui.Dialog().ok(
                 ARCTIC_ZEPHYR_RELOADED_NAME,
                 "Kodi hat den Skin-Wechsel nicht automatisch uebernommen.",
-                "Die Skin-Einstellungen wurden geoeffnet. Bitte Arctic: Zephyr - Reloaded dort auswaehlen.",
+                "Die Skin-Einstellungen wurden geoeffnet. Bitte Ultimate IPTV dort auswaehlen.",
             )
         return False
 
@@ -519,10 +519,10 @@ def apply_arctic_zephyr_reloaded_after_update():
 
     try:
         _apply_arctic_zephyr_reloaded_settings(clear_cache=True)
-        xbmc.log("[IPTV Addon] Arctic Zephyr Skin nach Addon-Update aktualisiert: " + version, xbmc.LOGINFO)
+        xbmc.log("[IPTV Addon] Ultimate IPTV Skin nach Addon-Update aktualisiert: " + version, xbmc.LOGINFO)
         return True
     except Exception as exc:
-        xbmc.log("[IPTV Addon] Arctic Zephyr Auto-Update fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
+        xbmc.log("[IPTV Addon] Ultimate IPTV Skin Auto-Update fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
         return False
 
 
@@ -532,7 +532,7 @@ def configure_arctic_zephyr_reloaded():
     if not _is_addon_installed(ARCTIC_ZEPHYR_RELOADED_ID):
         dialog.ok(
             ARCTIC_ZEPHYR_RELOADED_NAME,
-            "Bitte installiere den Skin zuerst ueber den Arctic-Zephyr-Menuepunkt.",
+            "Bitte installiere den Skin zuerst ueber den Ultimate-IPTV-Menuepunkt.",
         )
         return
 
@@ -583,7 +583,7 @@ def install_arctic_zephyr_reloaded():
         dialog.ok(
             ARCTIC_ZEPHYR_RELOADED_NAME,
             "Der Skin konnte nicht installiert werden.",
-            "Bitte pruefe, ob das offizielle Kodi-Repository aktiviert ist.",
+            "Bitte pruefe, ob das Xtream IPTV Ultimate Repository aktiviert ist.",
         )
         return
 
@@ -626,5 +626,5 @@ def install_arctic_zephyr_reloaded():
         dialog.ok(
             ARCTIC_ZEPHYR_RELOADED_NAME,
             "Kodi hat den Skin-Wechsel nicht automatisch uebernommen.",
-            "Die Skin-Einstellungen wurden geoeffnet. Bitte Arctic: Zephyr - Reloaded dort auswaehlen.",
+            "Die Skin-Einstellungen wurden geoeffnet. Bitte Ultimate IPTV dort auswaehlen.",
         )

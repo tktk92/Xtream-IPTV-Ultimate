@@ -72,33 +72,45 @@ $items
 
 $addonRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $pluginId = "plugin.video.xtream.strm"
+$skinId = "skin.xtream.ultimate"
 $repoId = "repository.xtream.iptv.ultimate"
 $repoRoot = Join-Path $addonRoot "repo"
 $repoAddonDir = Join-Path $repoRoot $repoId
+$skinSourceDir = Join-Path $addonRoot $skinId
 $zipsDir = Join-Path $repoRoot "zips"
 $pluginVersion = ([xml](Get-Content -Raw -LiteralPath (Join-Path $addonRoot "addon.xml"))).addon.version
+$skinVersion = ([xml](Get-Content -Raw -LiteralPath (Join-Path $skinSourceDir "addon.xml"))).addon.version
 $repoVersion = ([xml](Get-Content -Raw -LiteralPath (Join-Path $repoAddonDir "addon.xml"))).addon.version
 $pluginZip = Join-Path $addonRoot "dist\$pluginId-$pluginVersion.zip"
+$skinZip = Join-Path $addonRoot "dist\$skinId-$skinVersion.zip"
 $repoZipDir = Join-Path $zipsDir $repoId
 $pluginZipDir = Join-Path $zipsDir $pluginId
+$skinZipDir = Join-Path $zipsDir $skinId
 $repoZip = Join-Path $repoZipDir "$repoId-$repoVersion.zip"
 
 & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "package_addon.ps1")
 
 New-Item -ItemType Directory -Force -Path $repoZipDir | Out-Null
 New-Item -ItemType Directory -Force -Path $pluginZipDir | Out-Null
+New-Item -ItemType Directory -Force -Path $skinZipDir | Out-Null
 
 Get-ChildItem -LiteralPath $pluginZipDir -Filter "$pluginId-*.zip" -File -ErrorAction SilentlyContinue | Remove-Item -Force
 Copy-Item -LiteralPath $pluginZip -Destination (Join-Path $pluginZipDir (Split-Path $pluginZip -Leaf)) -Force
+
+Get-ChildItem -LiteralPath $skinZipDir -Filter "$skinId-*.zip" -File -ErrorAction SilentlyContinue | Remove-Item -Force
+New-SingleAddonZip -SourceDir $skinSourceDir -AddonId $skinId -ZipPath $skinZip
+Copy-Item -LiteralPath $skinZip -Destination (Join-Path $skinZipDir (Split-Path $skinZip -Leaf)) -Force
 
 Get-ChildItem -LiteralPath $repoZipDir -Filter "$repoId-*.zip" -File -ErrorAction SilentlyContinue | Remove-Item -Force
 New-SingleAddonZip -SourceDir $repoAddonDir -AddonId $repoId -ZipPath $repoZip
 
 $pluginAddonXml = Get-Content -Raw -LiteralPath (Join-Path $addonRoot "addon.xml")
+$skinAddonXml = Get-Content -Raw -LiteralPath (Join-Path $skinSourceDir "addon.xml")
 $repositoryAddonXml = Get-Content -Raw -LiteralPath (Join-Path $repoAddonDir "addon.xml")
 $addonsXml = "<?xml version=`"1.0`" encoding=`"UTF-8`" standalone=`"yes`"?>`n<addons>`n" +
     $repositoryAddonXml.Replace("<?xml version=`"1.0`" encoding=`"UTF-8`" standalone=`"yes`"?>", "").Trim() + "`n" +
     $pluginAddonXml.Replace("<?xml version=`"1.0`" encoding=`"UTF-8`" standalone=`"yes`"?>", "").Trim() + "`n" +
+    $skinAddonXml.Replace("<?xml version=`"1.0`" encoding=`"UTF-8`"?>", "").Replace("<?xml version=`"1.0`" encoding=`"UTF-8`" standalone=`"yes`"?>", "").Trim() + "`n" +
     "</addons>`n"
 
 $addonsPath = Join-Path $repoRoot "addons.xml"
@@ -110,12 +122,14 @@ $md5 = [System.BitConverter]::ToString(
 ).Replace("-", "").ToLowerInvariant()
 [System.IO.File]::WriteAllText((Join-Path $repoRoot "addons.xml.md5"), $md5, $encoding)
 
-Write-IndexHtml -Path (Join-Path $zipsDir "index.html") -Title "Xtream IPTV Ultimate Repository" -Links @("$repoId/", "$pluginId/")
+Write-IndexHtml -Path (Join-Path $zipsDir "index.html") -Title "Xtream IPTV Ultimate Repository" -Links @("$repoId/", "$pluginId/", "$skinId/")
 Write-IndexHtml -Path (Join-Path $repoZipDir "index.html") -Title "Xtream IPTV Ultimate Repository ZIP" -Links @("$repoId-$repoVersion.zip")
 Write-IndexHtml -Path (Join-Path $pluginZipDir "index.html") -Title "Xtream IPTV Ultimate Addon ZIP" -Links @("$pluginId-$pluginVersion.zip")
+Write-IndexHtml -Path (Join-Path $skinZipDir "index.html") -Title "Ultimate IPTV Skin ZIP" -Links @("$skinId-$skinVersion.zip")
 
 Write-Host "Repository created:"
 Write-Host "  repo/addons.xml"
 Write-Host "  repo/addons.xml.md5"
 Write-Host "  repo/zips/$repoId/$repoId-$repoVersion.zip"
 Write-Host "  repo/zips/$pluginId/$pluginId-$pluginVersion.zip"
+Write-Host "  repo/zips/$skinId/$skinId-$skinVersion.zip"
