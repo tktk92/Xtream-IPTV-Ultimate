@@ -4,7 +4,7 @@ import xbmcgui
 import xbmcplugin
 
 from common import HANDLE, build_url
-from config import get_selected_languages
+from config import get_selected_languages, is_content_allowed
 from language_filter import extract_language_from_category
 from strm import write_episode, clean_filename
 from kodi_library import scan_kodi_library_after_export
@@ -109,6 +109,7 @@ def show_series_list(category_id, category_name):
         return
 
     for serie in series_list:
+        serie["category_name_export"] = category_name
         add_series_item(serie)
 
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_LABEL)
@@ -116,6 +117,9 @@ def show_series_list(category_id, category_name):
 
 
 def add_series_item(serie):
+    if not is_content_allowed(serie):
+        return False
+
     name = serie.get("name", "Serie")
     series_id = serie.get("series_id")
     li = xbmcgui.ListItem(name)
@@ -133,6 +137,7 @@ def add_series_item(serie):
         li,
         True
     )
+    return True
 
 
 def get_index_series_by_id(series_id):
@@ -318,6 +323,9 @@ def search_series():
         series_list = xtream.api("get_series", {"category_id": category_id})
 
         for serie in series_list:
+            serie["category_name_export"] = category_name
+            if not is_content_allowed(serie):
+                continue
             name = serie.get("name", "")
             if search_text in name.lower():
                 results.append(serie)
@@ -352,6 +360,8 @@ def show_latest(limit=100):
         progress.update(int((index + 1) / len(allowed) * 100), category_name)
         for serie in xtream.api("get_series", {"category_id": category_id}):
             serie["category_name_export"] = category_name
+            if not is_content_allowed(serie):
+                continue
             results.append(serie)
 
     progress.close()

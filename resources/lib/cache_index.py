@@ -13,7 +13,7 @@ from language_filter import extract_language_from_category
 
 LEGACY_INDEX_FILE = os.path.join(ADDON_PROFILE, "xtream_index.json")
 BUNDLED_INDEX_FOLDER = os.path.join(ADDON.getAddonInfo("path"), "resources", "data")
-INDEX_VERSION = 4
+INDEX_VERSION = 5
 INDEX_MAX_AGE_SECONDS = 24 * 60 * 60
 METADATA_WORKERS = 2
 METADATA_RETRIES = 2
@@ -34,6 +34,7 @@ MOVIE_COMPACT_KEYS = {
     "stream_icon": "i",
     "rating": "r",
     "trailer": "tr",
+    "is_adult": "ad",
     "metadata_checked_at": "mc"
 }
 
@@ -47,6 +48,7 @@ SERIES_COMPACT_KEYS = {
     "tmdb_id": "tm",
     "cover": "i",
     "rating": "r",
+    "is_adult": "ad",
     "metadata_checked_at": "mc"
 }
 
@@ -642,7 +644,8 @@ def rebuild_index(show_progress=True, notify=True):
                 "stream_id": m.get("stream_id"),
                 "category_name": cname,
                 "container_extension": m.get("container_extension","mp4"),
-                "added": m.get("added")
+                "added": m.get("added"),
+                "is_adult": m.get("is_adult")
             }
             category_items.append(item)
         if canceled:
@@ -786,7 +789,8 @@ def rebuild_basic_index(show_progress=True, notify=True):
             "tmdb_id": first_value(m, ["tmdb_id", "tmdb"]),
             "stream_icon": m.get("stream_icon"),
             "rating": m.get("rating"),
-            "trailer": m.get("trailer")
+            "trailer": m.get("trailer"),
+            "is_adult": m.get("is_adult")
         }
         data["movies"].append(item)
 
@@ -815,7 +819,8 @@ def rebuild_basic_index(show_progress=True, notify=True):
                 "added": s.get("added"),
                 "tmdb_id": first_value(s, ["tmdb_id", "tmdb"]),
                 "cover": s.get("cover"),
-                "rating": s.get("rating")
+                "rating": s.get("rating"),
+                "is_adult": s.get("is_adult")
             }
             data["series"].append(item)
 

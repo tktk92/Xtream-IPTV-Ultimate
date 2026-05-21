@@ -7,7 +7,7 @@ import xbmc
 import xbmcgui
 import xbmcplugin
 from common import ADDON, HANDLE, build_url
-from config import get_selected_languages
+from config import get_selected_languages, is_content_allowed
 from language_filter import extract_language_from_category
 from strm import write_movie, clean_filename, get_movie_folder
 from movie_lookup import (
@@ -311,6 +311,8 @@ def get_xtream_movie_candidates(selected_languages):
 
         if wanted and language not in wanted:
             continue
+        if not is_content_allowed(movie):
+            continue
 
         tmdb_id = str(movie.get("tmdb_id") or "")
         if tmdb_id and tmdb_id not in candidates_by_tmdb_id:
@@ -413,6 +415,8 @@ def reload_tmdb_recent_selected(months=None, max_pages=None):
         match = find_xtream_match_for_tmdb(tmdb_movie, xtream_candidates)
         if not match:
             continue
+        if not is_content_allowed(match):
+            continue
 
         stream_id = match.get("stream_id")
         if stream_id in seen_stream_ids:
@@ -502,6 +506,11 @@ def reload_tmdb_recent_selected(months=None, max_pages=None):
 
 
 def add_movie_item(movie, category_name):
+    item = dict(movie or {})
+    item.setdefault("category_name", category_name)
+    if not is_content_allowed(item):
+        return False
+
     name = movie.get("name", "Film")
     stream_id = movie.get("stream_id")
     extension = movie.get("container_extension", "mp4")
@@ -519,6 +528,7 @@ def add_movie_item(movie, category_name):
         li,
         False
     )
+    return True
 
 
 def search_movies_via_tmdb(search_text):
@@ -608,9 +618,11 @@ def search_movies():
         movies = xtream.api("get_vod_streams", {"category_id": category_id})
 
         for movie in movies:
+            movie["category_name_export"] = category_name
+            if not is_content_allowed(movie):
+                continue
             name = movie.get("name", "")
             if search_text in name.lower():
-                movie["category_name_export"] = category_name
                 results.append(movie)
 
     progress.close()
@@ -667,6 +679,9 @@ def export_category(category_id, category_name):
     for index, movie in enumerate(movies):
         if progress.iscanceled():
             break
+        movie["category_name_export"] = category_name
+        if not is_content_allowed(movie):
+            continue
 
         name = movie.get("name", "Film")
         index_movie = index_movies.get(str(movie.get("stream_id") or ""))

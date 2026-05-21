@@ -62,3 +62,29 @@ def set_selected_languages(languages):
     config = load_config()
     config["selected_languages"] = languages
     save_config(config)
+
+
+def get_content_profile():
+    config = load_config()
+    return config.get("content_profile", "adult")
+
+
+def is_kids_profile():
+    return get_content_profile() == "kids"
+
+
+def is_adult_item(item):
+    if not isinstance(item, dict):
+        return False
+
+    value = item.get("is_adult")
+    if str(value).strip().lower() in ("1", "true", "yes"):
+        return True
+
+    category = (item.get("category_name") or item.get("category_name_export") or "").lower()
+    adult_markers = ("adult", "xxx", "18+", "18 plus", "erotik", "porn")
+    return any(marker in category for marker in adult_markers)
+
+
+def is_content_allowed(item):
+    return not (is_kids_profile() and is_adult_item(item))

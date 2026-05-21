@@ -17,6 +17,7 @@ import stream_check
 import settings_helper
 import cache_index
 import appearance
+import profiles
 from strm import ensure_media_folders
 from common import HANDLE
 
@@ -60,6 +61,9 @@ def router():
 
     elif mode == "configure_arctic_zephyr_reloaded":
         appearance.configure_arctic_zephyr_reloaded()
+
+    elif mode == "setup_profiles":
+        profiles.setup_kodi_profiles(show_dialog=True)
 
     elif mode == "movies_menu":
         movies.menu()

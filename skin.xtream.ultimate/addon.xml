@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="skin.xtream.ultimate" version="0.1.0" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
+<addon id="skin.xtream.ultimate" version="0.1.1" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
     <requires>
         <import addon="xbmc.gui" version="5.17.0"/>
         <import addon="script.skinshortcuts" version="0.4.0"/>

@@ -40,6 +40,7 @@ MODE_ICONS = {
     "open_settings": "credentials.png",
     "install_arctic_zephyr_reloaded": "skin.png",
     "configure_arctic_zephyr_reloaded": "layout.png",
+    "setup_profiles": "credentials.png",
     "show_index_info": "info.png",
     "rebuild_basic_index": "refresh.png",
 }
@@ -129,6 +130,7 @@ def settings_menu():
         ("Ersteinrichtung starten", {"mode": "setup_wizard"}, False),
         ("IPTV Zugangsdaten", {"mode": "open_settings"}, False),
         ("Speicherpfade", {"mode": "open_settings"}, False),
+        ("Profile einrichten", {"mode": "setup_profiles"}, False),
         ("Ultimate IPTV Skin installieren", {"mode": "install_arctic_zephyr_reloaded"}, False),
         ("Ultimate IPTV Skin einrichten", {"mode": "configure_arctic_zephyr_reloaded"}, False),
     ]

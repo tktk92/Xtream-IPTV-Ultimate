@@ -20,7 +20,7 @@
 </addon>
 <addon id="plugin.video.xtream.strm"
        name="Xtream IPTV Ultimate"
-       version="1.0.64"
+       version="1.0.65"
        provider-name="Sui">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -38,7 +38,7 @@
         <platform>all</platform>
     </extension>
 </addon>
-<addon id="skin.xtream.ultimate" version="0.1.0" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
+<addon id="skin.xtream.ultimate" version="0.1.1" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
     <requires>
         <import addon="xbmc.gui" version="5.17.0"/>
         <import addon="script.skinshortcuts" version="0.4.0"/>
