@@ -19,6 +19,7 @@ SERIES_SOURCE_NAME = "Xtream IPTV Ultimate Serien"
 MOVIE_SCRAPER_ID = "metadata.themoviedb.org.python"
 TV_SCRAPER_ID = "metadata.tvshows.themoviedb.org.python"
 LIBRARY_SETUP_STATE_FILE = "library_setup_state.json"
+LIBRARY_SCHEMA_VERSION = 1
 SCRAPER_GZIP_PATCH_MARKER = "# Xtream IPTV Ultimate gzip patch"
 GERMAN_MOVIE_SCRAPER_SETTINGS = {
     "keeporiginaltitle": "false",
@@ -767,10 +768,9 @@ def refresh_xtream_library_metadata():
 
 
 def apply_kodi_library_update_after_addon_update():
-    version = xbmcaddon.Addon().getAddonInfo("version")
     state_path = library_setup_state_path()
     state = load_json_object(state_path)
-    if state.get("addon_version") == version:
+    if int(state.get("library_schema_version") or 0) >= LIBRARY_SCHEMA_VERSION:
         return False
 
     try:
@@ -785,13 +785,14 @@ def apply_kodi_library_update_after_addon_update():
         save_json_object(
             state_path,
             {
-                "addon_version": version,
+                "addon_version": xbmcaddon.Addon().getAddonInfo("version"),
+                "library_schema_version": LIBRARY_SCHEMA_VERSION,
                 "applied_at": int(time.time()),
                 "removed_movies": removed_movies,
                 "removed_tvshows": removed_tvshows,
             },
         )
-        xbmc.log("[IPTV Addon] Kodi Bibliothek nach Addon-Update aktualisiert: " + version, xbmc.LOGINFO)
+        xbmc.log("[IPTV Addon] Kodi Bibliothek fuer Schema aktualisiert: " + str(LIBRARY_SCHEMA_VERSION), xbmc.LOGINFO)
         return True
     except Exception as exc:
         xbmc.log("[IPTV Addon] Kodi Bibliothek Auto-Update fehlgeschlagen: %s" % exc, xbmc.LOGERROR)

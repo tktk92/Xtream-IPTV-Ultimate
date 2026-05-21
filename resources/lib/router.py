@@ -3,6 +3,7 @@
 import sys
 import urllib.parse
 
+import xbmc
 import xbmcgui
 import xbmcplugin
 
@@ -63,7 +64,29 @@ def router():
         appearance.configure_arctic_zephyr_reloaded()
 
     elif mode == "setup_profiles":
-        profiles.setup_kodi_profiles(show_dialog=True)
+        if profiles.kodi_profiles_are_configured():
+            xbmcgui.Dialog().ok("Profile", "Kodi-Profile und LoginScreen sind bereits eingerichtet.")
+        else:
+            progress = xbmcgui.DialogProgress()
+            progress.create("Xtream IPTV Ultimate", "Kodi-Profile werden vorbereitet...")
+            try:
+                updated = profiles.apply_profiles_after_update(progress=progress)
+            finally:
+                progress.close()
+
+            if updated:
+                xbmcgui.Dialog().ok(
+                    "Profile",
+                    "Die Profile wurden vorbereitet.\n\n"
+                    "Kodi wird jetzt geschlossen, die Profil-Liste wird sicher geschrieben und Kodi startet danach automatisch neu."
+                )
+                xbmc.executebuiltin("Quit")
+            else:
+                xbmcgui.Dialog().ok(
+                    "Profile",
+                    "Die Profile sind noch nicht aktiv.\n\n"
+                    "Falls Kodi gerade neu startet, warte kurz und starte die Funktion danach erneut."
+                )
 
     elif mode == "movies_menu":
         movies.menu()

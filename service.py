@@ -5,6 +5,7 @@ import sys
 
 import xbmc
 import xbmcaddon
+import xbmcgui
 
 
 ADDON = xbmcaddon.Addon()
@@ -42,9 +43,26 @@ class XtreamStrmService(xbmc.Monitor):
             log("Repository-/Addon-Updatepruefung fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
 
     def run_update_tasks(self):
+        progress = None
+        needs_visible_update = False
         try:
+            try:
+                from profiles import kodi_profiles_are_configured
+                needs_visible_update = not kodi_profiles_are_configured()
+            except Exception:
+                needs_visible_update = False
+
+            if needs_visible_update:
+                progress = xbmcgui.DialogProgress()
+                progress.create("Xtream IPTV Ultimate", "Update wird vorbereitet...")
+                progress.update(10, "Pruefe Kodi-Profile und LoginScreen...\n\nBitte Kodi nicht schliessen.")
+
             ensure_media_folders()
-            profiles_updated = apply_profiles_after_update()
+            profiles_updated = apply_profiles_after_update(progress=progress)
+
+            if profiles_updated and progress:
+                progress.update(85, "Profil-Update ist vorbereitet.\n\nKodi wird jetzt beendet und danach automatisch neu gestartet.")
+
             skin_updated = apply_arctic_zephyr_reloaded_after_update()
             library_updated = apply_kodi_library_update_after_addon_update()
             log("Update-Aufgaben geprueft: Profile={0}, Skin={1}, Bibliothek={2}".format(
@@ -52,8 +70,31 @@ class XtreamStrmService(xbmc.Monitor):
                 skin_updated,
                 library_updated,
             ))
+
+            if profiles_updated:
+                if progress:
+                    progress.update(100, "Profil-Update startet jetzt...\n\nKodi wird kurz geschlossen.")
+                    xbmc.sleep(1000)
+                    progress.close()
+                    progress = None
+                xbmcgui.Dialog().ok(
+                    "Xtream IPTV Ultimate",
+                    "Die Kodi-Profile werden jetzt sicher eingerichtet.\n\n"
+                    "Kodi wird geschlossen, die Profile werden eingetragen und Kodi startet danach automatisch neu."
+                )
+                xbmc.executebuiltin("Quit")
         except Exception as exc:
             log("Update-Aufgaben fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
+            if needs_visible_update:
+                xbmcgui.Dialog().notification(
+                    "Xtream IPTV Ultimate",
+                    "Update-Aufgaben fehlgeschlagen",
+                    xbmcgui.NOTIFICATION_ERROR,
+                    5000,
+                )
+        finally:
+            if progress:
+                progress.close()
 
     def run_periodic_tasks(self):
         try:

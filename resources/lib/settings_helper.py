@@ -148,8 +148,8 @@ def run_setup_wizard(force=False):
         update_setup_progress(progress, 15, "Ordner fuer Filme und Serien werden angelegt.", "ca. 3-8 Minuten")
         ensure_media_folders()
 
-        update_setup_progress(progress, 24, "Kodi-Profile und LoginScreen werden vorbereitet.", "ca. 1 Minute")
-        profiles.setup_kodi_profiles(show_dialog=False)
+        update_setup_progress(progress, 24, "Kodi-Profile und LoginScreen werden fuer den naechsten Start vorbereitet.", "ca. 1 Minute")
+        profiles.apply_profiles_after_update(progress=progress)
 
         update_setup_progress(progress, 35, "Kodi-Scraper werden installiert und auf Deutsch eingerichtet.", "ca. 3-8 Minuten")
         kodi_library.install_and_configure_metadata_scrapers(show_dialog=False)

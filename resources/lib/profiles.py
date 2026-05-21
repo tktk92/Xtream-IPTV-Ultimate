@@ -4,6 +4,8 @@ import json
 import os
 import re
 import shutil
+import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 
@@ -34,6 +36,7 @@ PROFILE_DEFINITIONS = (
 )
 
 PROFILE_SETUP_STATE_FILE = "profile_setup_state.json"
+PROFILE_BOOTSTRAP_FILE = "profile_bootstrap.ps1"
 
 
 def _translate(path):
@@ -90,6 +93,10 @@ def _save_profile_setup_state(data):
     _write_json(_profile_setup_state_path(), data)
 
 
+def _profile_bootstrap_path():
+    return _translate("%s/%s" % (ADDON_PROFILE, PROFILE_BOOTSTRAP_FILE))
+
+
 def _write_xml(path, root):
     _ensure_dir(os.path.dirname(path))
     tree = ET.ElementTree(root)
@@ -140,6 +147,11 @@ def _write_profile_config(profile_def):
     data["content_profile"] = profile_def["content_profile"]
     data.setdefault("selected_languages", [])
     _write_json(profile_config, data)
+
+
+def _prepare_profile_folders():
+    for profile_def in PROFILE_DEFINITIONS:
+        _prepare_profile_folder(profile_def)
 
 
 def _copy_if_exists(source, target):
@@ -216,6 +228,201 @@ def _append_profile(root, profile_id, profile_def):
     ET.SubElement(node, "lastdate").text = ""
 
 
+def _profiles_xml_is_configured():
+    profiles_path = _master_profile_path("profiles.xml")
+    if not os.path.exists(profiles_path):
+        return False
+
+    try:
+        root = ET.parse(profiles_path).getroot()
+    except Exception:
+        return False
+
+    if (root.findtext("useloginscreen") or "").strip().lower() != "true":
+        return False
+
+    names = _profile_names(root)
+    for profile_def in PROFILE_DEFINITIONS:
+        if profile_def["name"].strip().lower() not in names:
+            return False
+
+    return True
+
+
+def kodi_profiles_are_configured():
+    if not _profiles_xml_is_configured():
+        return False
+
+    for profile_def in PROFILE_DEFINITIONS:
+        if not os.path.exists(_profile_path(profile_def, "addon_data", ADDON_ID, "config.json")):
+            return False
+
+    return True
+
+
+def _powershell_string(value):
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _build_profile_bootstrap_script(profiles_path, kodi_executable):
+    profile_entries = []
+    for profile_def in PROFILE_DEFINITIONS:
+        profile_entries.append(
+            "@{Name=%s; Directory=%s; ContentProfile=%s}"
+            % (
+                _powershell_string(profile_def["name"]),
+                _powershell_string(profile_def["directory"]),
+                _powershell_string(profile_def["content_profile"]),
+            )
+        )
+
+    restart_block = ""
+    if kodi_executable and os.path.exists(kodi_executable):
+        restart_block = """
+Start-Sleep -Seconds 1
+Start-Process -FilePath {0}
+""".format(_powershell_string(kodi_executable))
+
+    return r"""$ErrorActionPreference = 'Stop'
+$profilesPath = {profiles_path}
+$profiles = @(
+    {profile_entries}
+)
+
+while (Get-Process -Name kodi -ErrorAction SilentlyContinue) {{
+    Start-Sleep -Milliseconds 500
+}}
+
+if (-not (Test-Path -LiteralPath $profilesPath)) {{
+    exit 2
+}}
+
+$backupPath = $profilesPath + '.ultimate-bootstrap-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+Copy-Item -LiteralPath $profilesPath -Destination $backupPath -Force
+
+[xml]$xml = Get-Content -LiteralPath $profilesPath -Raw
+$root = $xml.profiles
+
+function Ensure-TextNode($parent, $name, $value) {{
+    $node = $parent.SelectSingleNode($name)
+    if ($null -eq $node) {{
+        $node = $xml.CreateElement($name)
+        [void]$parent.AppendChild($node)
+    }}
+    $node.InnerText = $value
+}}
+
+function Ensure-Profile($root, $profile, [int]$id) {{
+    foreach ($existing in @($root.profile)) {{
+        if ($existing.name -and $existing.name.Trim().ToLowerInvariant() -eq $profile.Name.Trim().ToLowerInvariant()) {{
+            return $false
+        }}
+    }}
+
+    $node = $xml.CreateElement('profile')
+    $fields = @(
+        @('id', [string]$id),
+        @('name', $profile.Name),
+        @('directory', $profile.Directory),
+        @('thumbnail', ''),
+        @('hasdatabases', 'true'),
+        @('canwritedatabases', 'true'),
+        @('hassources', 'true'),
+        @('canwritesources', 'true'),
+        @('lockaddonmanager', 'false'),
+        @('locksettings', '0'),
+        @('lockfiles', 'false'),
+        @('lockmusic', 'false'),
+        @('lockvideo', 'false'),
+        @('lockpictures', 'false'),
+        @('lockprograms', 'false'),
+        @('lockgames', 'false'),
+        @('lockmode', '0'),
+        @('lockcode', ''),
+        @('lastdate', '')
+    )
+
+    foreach ($field in $fields) {{
+        $child = $xml.CreateElement($field[0])
+        if ($field[0] -eq 'directory' -or $field[0] -eq 'thumbnail') {{
+            $attr = $xml.CreateAttribute('pathversion')
+            $attr.Value = '1'
+            [void]$child.Attributes.Append($attr)
+        }}
+        $child.InnerText = $field[1]
+        [void]$node.AppendChild($child)
+    }}
+
+    [void]$root.AppendChild($node)
+    return $true
+}}
+
+$maxId = -1
+foreach ($existing in @($root.profile)) {{
+    $parsed = 0
+    if ([int]::TryParse([string]$existing.id, [ref]$parsed)) {{
+        if ($parsed -gt $maxId) {{
+            $maxId = $parsed
+        }}
+    }}
+}}
+
+$nextId = $maxId + 1
+foreach ($profile in $profiles) {{
+    if (Ensure-Profile $root $profile $nextId) {{
+        $nextId++
+    }}
+}}
+
+Ensure-TextNode $root 'useloginscreen' 'true'
+Ensure-TextNode $root 'autologin' '-1'
+Ensure-TextNode $root 'nextIdProfile' ([string]$nextId)
+
+$settings = New-Object System.Xml.XmlWriterSettings
+$settings.Indent = $true
+$settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+$writer = [System.Xml.XmlWriter]::Create($profilesPath, $settings)
+$xml.Save($writer)
+$writer.Close()
+{restart_block}
+""".format(
+        profiles_path=_powershell_string(profiles_path),
+        profile_entries=",\n    ".join(profile_entries),
+        restart_block=restart_block,
+    )
+
+
+def _start_windows_profile_bootstrap(show_dialog=True):
+    if os.name != "nt":
+        if show_dialog:
+            xbmcgui.Dialog().ok(
+                "Profile",
+                "Automatische Profileinrichtung ist aktuell nur fuer Windows vorbereitet.\n\n"
+                "Oeffne bitte Kodi Profileinstellungen und aktiviere den LoginScreen manuell.",
+            )
+        return False
+
+    profiles_path = _master_profile_path("profiles.xml")
+    bootstrap_path = _profile_bootstrap_path()
+    kodi_executable = sys.executable if sys.executable else ""
+
+    _ensure_dir(os.path.dirname(bootstrap_path))
+    with open(bootstrap_path, "w", encoding="utf-8") as handle:
+        handle.write(_build_profile_bootstrap_script(profiles_path, kodi_executable))
+
+    command = [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        bootstrap_path,
+    ]
+    subprocess.Popen(command, close_fds=True)
+    xbmc.log("[IPTV Addon] Kodi Profil-Bootstrap vorbereitet: " + bootstrap_path, xbmc.LOGINFO)
+    return True
+
+
 def setup_kodi_profiles(show_dialog=True):
     profiles_path = _master_profile_path("profiles.xml")
     if not os.path.exists(profiles_path):
@@ -268,20 +475,42 @@ def setup_kodi_profiles(show_dialog=True):
     return True
 
 
-def apply_profiles_after_update():
+def apply_profiles_after_update(progress=None):
     version = _current_addon_version()
     state = _load_profile_setup_state()
-    if state.get("addon_version") == version and state.get("completed"):
-        return False
 
-    try:
-        if setup_kodi_profiles(show_dialog=False):
+    if kodi_profiles_are_configured():
+        if not state.get("completed") or state.get("addon_version") != version:
             _save_profile_setup_state({
                 "addon_version": version,
                 "completed": True,
-                "applied_at": int(time.time()),
+                "verified_at": int(time.time()),
             })
-            xbmc.log("[IPTV Addon] Kodi Profile automatisch eingerichtet: " + version, xbmc.LOGINFO)
+        return False
+
+    if (
+        state.get("addon_version") == version
+        and state.get("bootstrap_started")
+        and int(time.time()) - int(state.get("bootstrap_started_at", 0) or 0) < 60
+    ):
+        return False
+
+    try:
+        if progress:
+            progress.update(25, "Kodi-Profile werden vorbereitet...\n\nProfile: Erwachsene, Kinder, Gast")
+        _prepare_profile_folders()
+
+        if progress:
+            progress.update(45, "LoginScreen wird fuer den naechsten Kodi-Start vorbereitet...\n\nKodi wird danach einmal neu gestartet.")
+
+        if _start_windows_profile_bootstrap(show_dialog=False):
+            _save_profile_setup_state({
+                "addon_version": version,
+                "completed": False,
+                "bootstrap_started": True,
+                "bootstrap_started_at": int(time.time()),
+            })
+            xbmc.log("[IPTV Addon] Kodi Profil-Bootstrap automatisch gestartet: " + version, xbmc.LOGINFO)
             return True
     except Exception as exc:
         xbmc.log("[IPTV Addon] Kodi Profil-Autoeinrichtung fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
