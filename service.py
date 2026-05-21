@@ -37,7 +37,6 @@ class XtreamStrmService(xbmc.Monitor):
             github_updates = check_github_updates()
             xbmc.executebuiltin("UpdateAddonRepos", True)
             xbmc.executebuiltin("UpdateLocalAddons", True)
-            xbmc.executebuiltin("InstallAddon({0})".format(ADDON_ID), True)
             log("GitHub-/Repository-Updatepruefung abgeschlossen: {0}".format(len(github_updates)))
         except Exception as exc:
             log("Repository-/Addon-Updatepruefung fehlgeschlagen: " + str(exc), xbmc.LOGERROR)

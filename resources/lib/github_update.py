@@ -8,6 +8,8 @@ import xbmc
 import xbmcaddon
 
 
+CURRENT_ADDON_ID = "plugin.video.xtream.strm"
+
 GITHUB_ADDONS_XML_URLS = (
     "https://raw.githubusercontent.com/tktk92/Xtream-IPTV-Ultimate/main/repo/addons.xml",
     "https://tktk92.github.io/Xtream-IPTV-Ultimate/repo/addons.xml",
@@ -84,10 +86,6 @@ def _installed_version(addon_id):
         return ""
 
 
-def _is_installed(addon_id):
-    return bool(_installed_version(addon_id))
-
-
 def _install_addon(addon_id):
     xbmc.executebuiltin("InstallAddon({0})".format(addon_id), True)
     xbmc.sleep(500)
@@ -121,7 +119,20 @@ def check_github_updates():
     xbmc.executebuiltin("UpdateLocalAddons", True)
 
     installed = []
+    pending = []
     for addon_id, local_version, remote_version in updates:
+        if addon_id == CURRENT_ADDON_ID:
+            pending.append((addon_id, local_version, remote_version))
+            log(
+                "Laufendes Addon wird nicht synchron aus dem eigenen Service installiert: {0} {1}->{2}".format(
+                    addon_id,
+                    local_version,
+                    remote_version,
+                ),
+                xbmc.LOGWARNING,
+            )
+            continue
+
         try:
             _install_addon(addon_id)
             new_version = _installed_version(addon_id)
@@ -140,5 +151,9 @@ def check_github_updates():
         except Exception as exc:
             log("Addon-Update fehlgeschlagen: {0} | {1}".format(addon_id, exc), xbmc.LOGERROR)
 
-    return installed
+    if pending:
+        xbmc.executebuiltin("UpdateAddonRepos")
+        xbmc.executebuiltin("UpdateLocalAddons")
+        log("Plugin-Update vorgemerkt. Kodi sollte das Update ueber das Repository nachladen oder nach Neustart anbieten.", xbmc.LOGWARNING)
 
+    return installed
