@@ -13,12 +13,14 @@ ADDON_PATH = ADDON.getAddonInfo("path")
 LIB_PATH = os.path.join(ADDON_PATH, "resources", "lib")
 UPDATE_CHECK_INTERVAL_SECONDS = 300
 STARTUP_REPOSITORY_UPDATE_DELAY_SECONDS = 5
+STARTUP_SERVICE_READY_DELAY_SECONDS = 5
 
 if LIB_PATH not in sys.path:
     sys.path.append(LIB_PATH)
 
 from auto_import import run_startup_import
 from appearance import apply_arctic_zephyr_reloaded_after_update
+from github_update import check_github_updates
 from kodi_library import apply_kodi_library_update_after_addon_update
 from strm import ensure_media_folders
 
@@ -30,11 +32,12 @@ def log(message, level=xbmc.LOGINFO):
 class XtreamStrmService(xbmc.Monitor):
     def run_startup_repository_update(self):
         try:
-            log("Repository-Update wird geprueft")
+            log("GitHub-/Repository-Update wird geprueft")
+            github_updates = check_github_updates()
             xbmc.executebuiltin("UpdateAddonRepos", True)
             xbmc.executebuiltin("UpdateLocalAddons", True)
             xbmc.executebuiltin("InstallAddon({0})".format(ADDON_ID), True)
-            log("Repository-Update und Addon-Updatepruefung abgeschlossen")
+            log("GitHub-/Repository-Updatepruefung abgeschlossen: {0}".format(len(github_updates)))
         except Exception as exc:
             log("Repository-/Addon-Updatepruefung fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
 
@@ -55,7 +58,7 @@ class XtreamStrmService(xbmc.Monitor):
 
     def run(self):
         log("Service gestartet")
-        if self.waitForAbort(20):
+        if self.waitForAbort(STARTUP_SERVICE_READY_DELAY_SECONDS):
             return
 
         if not self.waitForAbort(STARTUP_REPOSITORY_UPDATE_DELAY_SECONDS):
