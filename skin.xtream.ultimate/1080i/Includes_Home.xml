@@ -2674,8 +2674,8 @@
 
                 <!-- Ultimate IPTV quick actions -->
                 <control type="group">
-                    <left>116</left>
-                    <bottom>72</bottom>
+                    <left>96</left>
+                    <top>958</top>
                     <width>132</width>
                     <height>58</height>
                     <include>Animation.FadeIn</include>
@@ -2699,7 +2699,7 @@
                         <top>11</top>
                         <width>32</width>
                         <height>32</height>
-                        <texture colordiffuse="Dark1">special://skin/extras/icons/settings.png</texture>
+                        <texture colordiffuse="FFFFFFFF">special://skin/extras/icons/settings.png</texture>
                         <visible>Control.HasFocus(9100)</visible>
                     </control>
                     <control type="image">
@@ -2707,7 +2707,7 @@
                         <top>11</top>
                         <width>32</width>
                         <height>32</height>
-                        <texture colordiffuse="Dark3">special://skin/extras/icons/settings.png</texture>
+                        <texture colordiffuse="CCFFFFFF">special://skin/extras/icons/settings.png</texture>
                         <visible>!Control.HasFocus(9100)</visible>
                     </control>
                     <control type="button" id="9101">
@@ -2729,7 +2729,7 @@
                         <top>11</top>
                         <width>32</width>
                         <height>32</height>
-                        <texture colordiffuse="Dark1">special://skin/extras/icons/power.png</texture>
+                        <texture colordiffuse="FFFFFFFF">special://skin/extras/icons/power.png</texture>
                         <visible>Control.HasFocus(9101)</visible>
                     </control>
                     <control type="image">
@@ -2737,7 +2737,7 @@
                         <top>11</top>
                         <width>32</width>
                         <height>32</height>
-                        <texture colordiffuse="Dark3">special://skin/extras/icons/power.png</texture>
+                        <texture colordiffuse="CCFFFFFF">special://skin/extras/icons/power.png</texture>
                         <visible>!Control.HasFocus(9101)</visible>
                     </control>
                 </control>

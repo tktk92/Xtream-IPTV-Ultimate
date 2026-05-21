@@ -23,9 +23,11 @@
     
     <!-- Set Trailer Path -->
     <onload>SetProperty(TrailerPath,$INFO[ListItem.Trailer],home)</onload>
-    <onload>SetProperty(TrailerPath2,$INFO[ListItem.Trailer],home)</onload>
+    <onload condition="String.StartsWith(ListItem.Trailer,plugin://) | String.StartsWith(ListItem.Trailer,http://) | String.StartsWith(ListItem.Trailer,https://) | String.StartsWith(ListItem.Trailer,special://)">SetProperty(TrailerPath2,$INFO[ListItem.Trailer],home)</onload>
+    <onload condition="!String.StartsWith(ListItem.Trailer,plugin://) + !String.StartsWith(ListItem.Trailer,http://) + !String.StartsWith(ListItem.Trailer,https://) + !String.StartsWith(ListItem.Trailer,special://)">SetProperty(TrailerPath2,plugin://plugin.video.youtube/play/?video_id=$INFO[ListItem.Trailer],home)</onload>
     
     <!-- Start Trailer -->
-    <onload>PlayMedia($ESCINFO[ListItem.Trailer],1)</onload> 
+    <onload condition="String.StartsWith(ListItem.Trailer,plugin://) | String.StartsWith(ListItem.Trailer,http://) | String.StartsWith(ListItem.Trailer,https://) | String.StartsWith(ListItem.Trailer,special://)">PlayMedia($ESCINFO[ListItem.Trailer],1)</onload>
+    <onload condition="!String.StartsWith(ListItem.Trailer,plugin://) + !String.StartsWith(ListItem.Trailer,http://) + !String.StartsWith(ListItem.Trailer,https://) + !String.StartsWith(ListItem.Trailer,special://)">PlayMedia(plugin://plugin.video.youtube/play/?video_id=$ESCINFO[ListItem.Trailer],1)</onload>
     <controls />
 </window>
