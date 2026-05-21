@@ -12,7 +12,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcvfs
 
-from common import ADDON_ID
+from common import ADDON_ID, ADDON_PROFILE
 
 
 PROFILE_DEFINITIONS = (
@@ -32,6 +32,8 @@ PROFILE_DEFINITIONS = (
         "content_profile": "guest",
     },
 )
+
+PROFILE_SETUP_STATE_FILE = "profile_setup_state.json"
 
 
 def _translate(path):
@@ -67,6 +69,25 @@ def _write_json(path, data):
     _ensure_dir(os.path.dirname(path))
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=4, sort_keys=True)
+
+
+def _profile_setup_state_path():
+    return _translate("%s/%s" % (ADDON_PROFILE, PROFILE_SETUP_STATE_FILE))
+
+
+def _current_addon_version():
+    try:
+        return xbmcaddon.Addon().getAddonInfo("version")
+    except Exception:
+        return ""
+
+
+def _load_profile_setup_state():
+    return _read_json(_profile_setup_state_path())
+
+
+def _save_profile_setup_state(data):
+    _write_json(_profile_setup_state_path(), data)
 
 
 def _write_xml(path, root):
@@ -246,3 +267,23 @@ def setup_kodi_profiles(show_dialog=True):
 
     return True
 
+
+def apply_profiles_after_update():
+    version = _current_addon_version()
+    state = _load_profile_setup_state()
+    if state.get("addon_version") == version and state.get("completed"):
+        return False
+
+    try:
+        if setup_kodi_profiles(show_dialog=False):
+            _save_profile_setup_state({
+                "addon_version": version,
+                "completed": True,
+                "applied_at": int(time.time()),
+            })
+            xbmc.log("[IPTV Addon] Kodi Profile automatisch eingerichtet: " + version, xbmc.LOGINFO)
+            return True
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Kodi Profil-Autoeinrichtung fehlgeschlagen: %s" % exc, xbmc.LOGERROR)
+
+    return False

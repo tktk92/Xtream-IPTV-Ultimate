@@ -22,6 +22,7 @@ from auto_import import run_startup_import
 from appearance import apply_arctic_zephyr_reloaded_after_update
 from github_update import check_github_updates
 from kodi_library import apply_kodi_library_update_after_addon_update
+from profiles import apply_profiles_after_update
 from strm import ensure_media_folders
 
 
@@ -44,9 +45,14 @@ class XtreamStrmService(xbmc.Monitor):
     def run_update_tasks(self):
         try:
             ensure_media_folders()
+            profiles_updated = apply_profiles_after_update()
             skin_updated = apply_arctic_zephyr_reloaded_after_update()
             library_updated = apply_kodi_library_update_after_addon_update()
-            log("Update-Aufgaben geprueft: Skin={0}, Bibliothek={1}".format(skin_updated, library_updated))
+            log("Update-Aufgaben geprueft: Profile={0}, Skin={1}, Bibliothek={2}".format(
+                profiles_updated,
+                skin_updated,
+                library_updated,
+            ))
         except Exception as exc:
             log("Update-Aufgaben fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
 
