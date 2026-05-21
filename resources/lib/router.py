@@ -19,6 +19,7 @@ import settings_helper
 import cache_index
 import appearance
 import profiles
+import search
 from strm import ensure_media_folders
 from common import HANDLE
 
@@ -53,6 +54,9 @@ def router():
 
     elif mode == "choose_languages":
         settings_helper.choose_languages()
+
+    elif mode == "search_all":
+        search.search_all()
 
     elif mode == "empty_widget":
         xbmcplugin.endOfDirectory(HANDLE)

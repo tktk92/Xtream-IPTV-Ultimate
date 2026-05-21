@@ -20,8 +20,32 @@ YOUTUBE_ADDON_NAME = "YouTube"
 SKINSHORTCUTS_ID = "script.skinshortcuts"
 SKIN_SETUP_STATE_FILE = "skin_setup_state.json"
 
-MAINMENU_ALLOWED_DEFAULT_IDS = ("movies", "tvshows", "livetv", "settings", "power")
-MAINMENU_ALLOWED_LABELS = ("serien", "tv shows", "tvshows", "live tv", "livetv")
+MAINMENU_ITEMS = (
+    {
+        "label": "Suchen",
+        "default_id": "search",
+        "icon": "special://skin/extras/icons/search.png",
+        "action": "ActivateWindow(Videos,plugin://plugin.video.xtream.strm/?mode=search_all,return)",
+    },
+    {
+        "label": "20342",
+        "default_id": "movies",
+        "icon": "special://skin/extras/icons/film.png",
+        "action": "ActivateWindow(Videos,MovieTitles,return)",
+    },
+    {
+        "label": "20343",
+        "default_id": "tvshows",
+        "icon": "special://skin/extras/icons/tv.png",
+        "action": "ActivateWindow(Videos,TVShowTitles,return)",
+    },
+    {
+        "label": "TV",
+        "default_id": "livetv",
+        "icon": "special://skin/extras/icons/livetv.png",
+        "action": "ActivateWindow(Tvchannels)",
+    },
+)
 
 MOVIE_WIDGETS = (
     {
@@ -71,32 +95,6 @@ TV_WIDGETS = (
         "path": "special://skin/extras/playlists/NewShows.xsp",
         "target": "video",
         "aspect": "Poster",
-    },
-)
-
-SETTINGS_WIDGETS = (
-    {
-        "label_id": "settings",
-        "suffix": "",
-        "name": "Xtream IPTV Ultimate",
-        "widget": "addon",
-        "path": "plugin://plugin.video.xtream.strm/",
-        "target": "video",
-        "aspect": "Square",
-        "type": "video",
-    },
-)
-
-POWER_WIDGETS = (
-    {
-        "label_id": "33060",
-        "suffix": "",
-        "name": "",
-        "widget": "custom",
-        "path": "plugin://plugin.video.xtream.strm/?mode=empty_widget",
-        "target": "video",
-        "aspect": "Square",
-        "type": "video",
     },
 )
 
@@ -306,19 +304,14 @@ def _set_shortcut_property(properties, label_id, name, value, group="mainmenu"):
 
 def _configure_mainmenu_visibility():
     user_path = _skinshortcuts_profile_path("mainmenu.DATA.xml")
-    source_path = user_path if os.path.exists(user_path) else _skin_default_mainmenu_path()
-    root = ET.parse(source_path).getroot()
-
-    for shortcut in root.findall("shortcut"):
-        default_id = shortcut.findtext("defaultID")
-        label = shortcut.findtext("label") or ""
-        label_normalized = label.strip().lower()
-        disabled = shortcut.find("disabled")
-        if default_id in MAINMENU_ALLOWED_DEFAULT_IDS or label_normalized in MAINMENU_ALLOWED_LABELS:
-            if disabled is not None:
-                shortcut.remove(disabled)
-        elif disabled is None:
-            ET.SubElement(shortcut, "disabled").text = "True"
+    root = ET.Element("shortcuts")
+    for menu_item in MAINMENU_ITEMS:
+        shortcut = ET.SubElement(root, "shortcut")
+        ET.SubElement(shortcut, "label").text = menu_item["label"]
+        ET.SubElement(shortcut, "label2").text = "Ultimate IPTV Shortcut"
+        ET.SubElement(shortcut, "defaultID").text = menu_item["default_id"]
+        ET.SubElement(shortcut, "icon").text = menu_item["icon"]
+        ET.SubElement(shortcut, "action").text = menu_item["action"]
 
     _write_xml(user_path, root)
 
@@ -336,7 +329,7 @@ def _configure_widgets():
         )
     ]
 
-    for widget in MOVIE_WIDGETS + TV_WIDGETS + SETTINGS_WIDGETS + POWER_WIDGETS:
+    for widget in MOVIE_WIDGETS + TV_WIDGETS:
         label_id = widget["label_id"]
         suffix = widget["suffix"]
         if suffix:
@@ -538,7 +531,8 @@ def configure_arctic_zephyr_reloaded():
 
     confirm = _yesno(
         ARCTIC_ZEPHYR_RELOADED_NAME,
-        "Im Hauptmenue bleiben nur Filme, Serien, Einstellungen und Power sichtbar.\n\n"
+        "Im Hauptmenue bleiben nur Suchen, Filme, Serien und TV sichtbar.\n\n"
+        "Einstellungen und Power werden als Icon-Buttons unten links gesetzt.\n\n"
         "Widgets, dunkle Netflix-Farben, rote Akzente und der Icon-Cache werden gesetzt.\n\n"
         "Soll die Skin-Konfiguration jetzt geschrieben werden?",
         nolabel="Abbrechen",
@@ -551,7 +545,7 @@ def configure_arctic_zephyr_reloaded():
         _apply_arctic_zephyr_reloaded_settings(clear_cache=True)
         dialog.notification(
             ARCTIC_ZEPHYR_RELOADED_NAME,
-            "Hauptmenue, Widgets, Farben, Hintergrundvideo und Icon-Cache gesetzt",
+            "Hauptmenue, Quick-Icons, Widgets, Farben, Hintergrundvideo und Icon-Cache gesetzt",
             xbmcgui.NOTIFICATION_INFO,
             5000,
         )
