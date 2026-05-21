@@ -3470,6 +3470,7 @@
                     <width>PosterW</width>
                     <height>720</height>
                     <orientation>vertical</orientation>
+                    <onright condition="String.IsEqual(Container(300).ListItem.Property(defaultID),search) | String.IsEqual(Container(300).ListItem.Label,Suchen)">9200</onright>
                     <onright condition="$EXP[ExtendedNowPlayingIsVisible] + Skin.HasSetting(hide.home.nowplaying.controls) + Skin.HasSetting(home.extended.nowplaying.tracklist) + Integer.IsGreater(Container(778).NumItems,0) + Player.HasAudio">778</onright>
                     <onright condition="$EXP[ExtendedNowPlayingIsVisible] + !Skin.HasSetting(hide.home.nowplaying.controls)">777</onright>
                     <onright>301</onright>
@@ -3628,6 +3629,76 @@
                     </content>
                 </control>
 
+                <!-- Ultimate IPTV quick actions -->
+                <control type="group">
+                    <left>196</left>
+                    <top>958</top>
+                    <width>132</width>
+                    <height>58</height>
+                    <include>Animation.FadeIn</include>
+                    <include>Animation.FadeOut</include>
+                    <control type="button" id="9100">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>54</width>
+                        <height>54</height>
+                        <label />
+                        <onclick>ActivateWindow(Settings)</onclick>
+                        <onright>9101</onright>
+                        <onleft>300</onleft>
+                        <onup>300</onup>
+                        <ondown>300</ondown>
+                        <texturefocus colordiffuse="$VAR[ColorHighlight]" border="8">common/box.png</texturefocus>
+                        <texturenofocus colordiffuse="Black30" border="8">common/box.png</texturenofocus>
+                    </control>
+                    <control type="image">
+                        <left>11</left>
+                        <top>11</top>
+                        <width>32</width>
+                        <height>32</height>
+                        <texture colordiffuse="FFFFFFFF">special://skin/extras/icons/settings.png</texture>
+                        <visible>Control.HasFocus(9100)</visible>
+                    </control>
+                    <control type="image">
+                        <left>11</left>
+                        <top>11</top>
+                        <width>32</width>
+                        <height>32</height>
+                        <texture colordiffuse="CCFFFFFF">special://skin/extras/icons/settings.png</texture>
+                        <visible>!Control.HasFocus(9100)</visible>
+                    </control>
+                    <control type="button" id="9101">
+                        <left>68</left>
+                        <top>0</top>
+                        <width>54</width>
+                        <height>54</height>
+                        <label />
+                        <onclick>ActivateWindow(shutdownmenu)</onclick>
+                        <onleft>9100</onleft>
+                        <onright>300</onright>
+                        <onup>300</onup>
+                        <ondown>300</ondown>
+                        <texturefocus colordiffuse="$VAR[ColorHighlight]" border="8">common/box.png</texturefocus>
+                        <texturenofocus colordiffuse="Black30" border="8">common/box.png</texturenofocus>
+                    </control>
+                    <control type="image">
+                        <left>79</left>
+                        <top>11</top>
+                        <width>32</width>
+                        <height>32</height>
+                        <texture colordiffuse="FFFFFFFF">special://skin/extras/icons/power.png</texture>
+                        <visible>Control.HasFocus(9101)</visible>
+                    </control>
+                    <control type="image">
+                        <left>79</left>
+                        <top>11</top>
+                        <width>32</width>
+                        <height>32</height>
+                        <texture colordiffuse="CCFFFFFF">special://skin/extras/icons/power.png</texture>
+                        <visible>!Control.HasFocus(9101)</visible>
+                    </control>
+                </control>
+
                 <!-- SubMenu List -->
                 <control type="list" id="302">
                     <visible allowhiddenfocus="true">Control.HasFocus(302)</visible>
@@ -3769,6 +3840,8 @@
                 </control>
                 <control type="group">
                     <animation effect="slide" start="0" end="0,30" time="0" condition="Skin.HasSetting(home.showheader) + [Skin.HasSetting(home.vertical) + Skin.HasSetting(home.vertical.widgets)]">Conditional</animation>
+                    <visible>!String.IsEqual(Container(300).ListItem.Property(defaultID),search)</visible>
+                    <visible>!String.IsEqual(Container(300).ListItem.Label,Suchen)</visible>
 
                     <!-- Widget -->
                     <control type="grouplist" id="301">
@@ -3810,6 +3883,48 @@
 
                     </control>
                     <include>ExtendedNowPlaying</include>
+                </control>
+                <control type="group">
+                    <visible>String.IsEqual(Container(300).ListItem.Property(defaultID),search) | String.IsEqual(Container(300).ListItem.Label,Suchen)</visible>
+                    <include>Animation.FadeIn</include>
+                    <include>Animation.FadeOut</include>
+                    <left>520</left>
+                    <top>260</top>
+                    <width>980</width>
+                    <height>360</height>
+                    <control type="label">
+                        <left>0</left>
+                        <top>0</top>
+                        <width>980</width>
+                        <height>70</height>
+                        <font>HomeFO</font>
+                        <textcolor>$VAR[ColorHighlight]</textcolor>
+                        <label>Suchen</label>
+                    </control>
+                    <control type="button" id="9200">
+                        <left>0</left>
+                        <top>115</top>
+                        <width>760</width>
+                        <height>78</height>
+                        <label>Film oder Serie suchen</label>
+                        <font>Medium</font>
+                        <textoffsetx>86</textoffsetx>
+                        <aligny>center</aligny>
+                        <onclick>ActivateWindow(Videos,plugin://plugin.video.xtream.strm/?mode=search_all,return)</onclick>
+                        <onleft>300</onleft>
+                        <onright>9200</onright>
+                        <onup>300</onup>
+                        <ondown>300</ondown>
+                        <texturefocus colordiffuse="$VAR[ColorHighlight]" border="8">common/box.png</texturefocus>
+                        <texturenofocus colordiffuse="Black60" border="8">common/box.png</texturenofocus>
+                    </control>
+                    <control type="image">
+                        <left>24</left>
+                        <top>138</top>
+                        <width>32</width>
+                        <height>32</height>
+                        <texture colordiffuse="FFFFFFFF">special://skin/extras/icons/search.png</texture>
+                    </control>
                 </control>
             </control>
             <control type="button" id="4567">
