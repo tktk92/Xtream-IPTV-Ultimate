@@ -23,7 +23,7 @@ from auto_import import run_startup_import
 from appearance import apply_arctic_zephyr_reloaded_after_update, configure_youtube_http_server
 from github_update import check_github_updates
 from kodi_library import apply_kodi_library_update_after_addon_update
-from profiles import apply_profiles_after_update
+from profiles import apply_profiles_after_update, configure_current_profile_preferences
 from strm import ensure_media_folders
 
 
@@ -65,10 +65,19 @@ class XtreamStrmService(xbmc.Monitor):
                 progress.update(85, "Profil-Update ist vorbereitet.\n\nKodi wird jetzt beendet und danach automatisch neu gestartet.")
 
             skin_updated = apply_arctic_zephyr_reloaded_after_update()
+            preferences_updated = False
+            if skin_updated and not profiles_updated:
+                log("Skin wurde aktualisiert, warte kurz vor Profil-Abfrage")
+                if self.waitForAbort(8):
+                    return
+
+            if not profiles_updated:
+                preferences_updated = configure_current_profile_preferences(force=False)
             library_updated = apply_kodi_library_update_after_addon_update()
-            log("Update-Aufgaben geprueft: Profile={0}, Skin={1}, Bibliothek={2}".format(
+            log("Update-Aufgaben geprueft: Profile={0}, Skin={1}, Profil-Einstellungen={2}, Bibliothek={3}".format(
                 profiles_updated,
                 skin_updated,
+                preferences_updated,
                 library_updated,
             ))
 

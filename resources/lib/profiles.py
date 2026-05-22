@@ -37,6 +37,58 @@ PROFILE_DEFINITIONS = (
 
 PROFILE_SETUP_STATE_FILE = "profile_setup_state.json"
 PROFILE_BOOTSTRAP_FILE = "profile_bootstrap.ps1"
+MOVIE_PROFILE_GENRES = (
+    "Action",
+    "Abenteuer",
+    "Animation",
+    "Biografie",
+    "Comedy",
+    "Crime",
+    "Drama",
+    "Familie",
+    "Fantasy",
+    "History",
+    "Horror",
+    "Krieg",
+    "Mystery",
+    "Romance",
+    "Sci-Fi",
+    "Sport",
+    "Thriller",
+    "Western",
+    "Deutsch",
+    "Tamil",
+    "Hindi",
+    "Tuerkisch",
+    "Koreanisch",
+    "Japanisch",
+    "Spanisch",
+    "Franzoesisch",
+)
+SERIES_PROFILE_GENRES = (
+    "Action",
+    "Animation",
+    "Comedy",
+    "Crime",
+    "Drama",
+    "Doku",
+    "Familie",
+    "Fantasy",
+    "Kids",
+    "Mystery",
+    "Reality",
+    "Romance",
+    "Sci-Fi",
+    "Thriller",
+    "Deutsch",
+    "Tamil",
+    "Hindi",
+    "Tuerkisch",
+    "Koreanisch",
+    "Japanisch",
+    "Spanisch",
+    "Franzoesisch",
+)
 
 
 def _translate(path):
@@ -95,6 +147,102 @@ def _save_profile_setup_state(data):
 
 def _profile_bootstrap_path():
     return _translate("%s/%s" % (ADDON_PROFILE, PROFILE_BOOTSTRAP_FILE))
+
+
+def _current_profile_name():
+    try:
+        value = xbmc.getInfoLabel("System.ProfileName")
+        if value:
+            return value.strip()
+    except Exception:
+        pass
+    return "Erwachsene"
+
+
+def _select_categories(title, categories, selected_categories=None):
+    if not categories:
+        return []
+
+    selected_categories = set(selected_categories or [])
+    preselect = [index for index, name in enumerate(categories) if name in selected_categories]
+    try:
+        result = xbmcgui.Dialog().multiselect(title, categories, preselect=preselect)
+    except TypeError:
+        result = xbmcgui.Dialog().multiselect(title, categories)
+
+    if result is None:
+        return None
+    return [categories[index] for index in result if 0 <= index < len(categories)]
+
+
+def _get_profile_preference_categories():
+    return list(MOVIE_PROFILE_GENRES), list(SERIES_PROFILE_GENRES)
+
+
+def configure_current_profile_preferences(force=False):
+    version = _current_addon_version()
+    state = _load_profile_setup_state()
+    if not force and state.get("preferences_addon_version") == version:
+        return False
+
+    config_path = _master_profile_path("addon_data", ADDON_ID, "config.json")
+    if not os.path.exists(config_path):
+        config_path = _translate("special://profile/addon_data/%s/config.json" % ADDON_ID)
+
+    config = _read_json(config_path)
+    current_name = config.get("profile_display_name") or _current_profile_name()
+
+    if not xbmcgui.Dialog().yesno(
+        "Profil einrichten",
+        "Moechtest du dieses Kodi-Profil jetzt personalisieren?\n\n"
+        "Es werden Name sowie bevorzugte Film- und Seriengenres gespeichert.",
+        nolabel="Spaeter",
+        yeslabel="Einrichten",
+    ):
+        state["preferences_postponed_at"] = int(time.time())
+        _save_profile_setup_state(state)
+        return False
+
+    profile_name = xbmcgui.Dialog().input("Profilname", defaultt=current_name, type=xbmcgui.INPUT_ALPHANUM)
+    if not profile_name:
+        profile_name = current_name
+
+    movie_categories, series_categories = _get_profile_preference_categories()
+    selected_movies = _select_categories(
+        "Bevorzugte Filmgenres",
+        movie_categories,
+        config.get("preferred_movie_genres") or config.get("preferred_movie_categories", []),
+    )
+    if selected_movies is None:
+        selected_movies = config.get("preferred_movie_genres") or config.get("preferred_movie_categories", [])
+
+    selected_series = _select_categories(
+        "Bevorzugte Seriengenres",
+        series_categories,
+        config.get("preferred_series_genres") or config.get("preferred_series_categories", []),
+    )
+    if selected_series is None:
+        selected_series = config.get("preferred_series_genres") or config.get("preferred_series_categories", [])
+
+    config["profile_display_name"] = profile_name.strip() or current_name
+    config["preferred_movie_genres"] = selected_movies
+    config["preferred_series_genres"] = selected_series
+    config.pop("preferred_movie_categories", None)
+    config.pop("preferred_series_categories", None)
+    config["profile_preferences_updated_at"] = int(time.time())
+    _write_json(config_path, config)
+
+    state["preferences_addon_version"] = version
+    state["preferences_completed_at"] = int(time.time())
+    _save_profile_setup_state(state)
+    xbmcgui.Dialog().notification(
+        "Profil gespeichert",
+        config["profile_display_name"],
+        xbmcgui.NOTIFICATION_INFO,
+        4000,
+    )
+    xbmc.log("[IPTV Addon] Profil-Einstellungen gespeichert: " + config["profile_display_name"], xbmc.LOGINFO)
+    return True
 
 
 def _write_xml(path, root):

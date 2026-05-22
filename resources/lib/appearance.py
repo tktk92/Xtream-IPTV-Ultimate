@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import time
+import uuid
 import xml.etree.ElementTree as ET
 
 import xbmc
@@ -228,6 +229,64 @@ def _find_youtube_http_port(current_port=""):
     return 52152
 
 
+def _write_json_if_missing(path, data):
+    if os.path.exists(path):
+        return False
+
+    _ensure_parent(path)
+    with open(path, "w") as handle:
+        json.dump(data, handle, indent=4, sort_keys=True)
+    return True
+
+
+def _ensure_youtube_json_store():
+    profile_path = xbmcvfs.translatePath("special://profile/addon_data/{0}".format(YOUTUBE_ADDON_ID))
+    if not profile_path:
+        return 0
+
+    user_id = uuid.uuid4().hex
+    created = 0
+    access_manager_path = os.path.join(profile_path, "access_manager.json")
+    api_keys_path = os.path.join(profile_path, "api_keys.json")
+
+    access_manager_data = {
+        "access_manager": {
+            "current_user": 0,
+            "developers": {},
+            "last_origin": YOUTUBE_ADDON_ID,
+            "users": {
+                "0": {
+                    "access_token": "",
+                    "id": user_id,
+                    "last_key_hash": "",
+                    "name": "Default",
+                    "refresh_token": "",
+                    "token_expires": -1,
+                    "watch_history": "HL",
+                    "watch_later": "WL",
+                }
+            },
+        }
+    }
+    api_keys_data = {
+        "keys": {
+            "developer": {},
+            "user": {
+                "api_key": "",
+                "client_id": "",
+                "client_secret": "",
+            },
+        }
+    }
+
+    if _write_json_if_missing(access_manager_path, access_manager_data):
+        created += 1
+    if _write_json_if_missing(api_keys_path, api_keys_data):
+        created += 1
+
+    return created
+
+
 def configure_youtube_http_server(show_dialog=False):
     if not _is_addon_installed(YOUTUBE_ADDON_ID):
         return False
@@ -236,18 +295,25 @@ def configure_youtube_http_server(show_dialog=False):
         addon = xbmcaddon.Addon(YOUTUBE_ADDON_ID)
         current_port = addon.getSetting("kodion.http.port")
         port = _find_youtube_http_port(current_port)
+        created_json_files = _ensure_youtube_json_store()
         addon.setSetting("kodion.http.listen", "127.0.0.1")
         addon.setSetting("kodion.http.port", str(port))
+        addon.setSetting("kodion.setup_wizard", "false")
         addon.setSetting("youtube.api.config.page", "false")
+        addon.setSetting("youtube.allow.dev.keys", "true")
+        addon.setSetting("youtube.folder.my_subscriptions.sources", "subscriptions,saved_playlists,bookmark_channels,bookmark_playlists")
         addon.setSetting("kodion.support.alternative_player", "false")
         xbmc.log(
-            "[IPTV Addon] YouTube HTTP-Server konfiguriert: 127.0.0.1:{0}".format(port),
+            "[IPTV Addon] YouTube fuer Trailer konfiguriert: 127.0.0.1:{0}, JSON-Dateien angelegt={1}".format(
+                port,
+                created_json_files,
+            ),
             xbmc.LOGINFO,
         )
         if show_dialog:
             xbmcgui.Dialog().notification(
                 YOUTUBE_ADDON_NAME,
-                "HTTP-Server auf lokalen freien Port gesetzt",
+                "Trailer-Wiedergabe vorbereitet",
                 xbmcgui.NOTIFICATION_INFO,
                 4000,
             )

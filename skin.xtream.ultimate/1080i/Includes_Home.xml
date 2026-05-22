@@ -3904,12 +3904,21 @@
                         <textcolor>$VAR[ColorHighlight]</textcolor>
                         <label>Suchen</label>
                     </control>
+                    <control type="label">
+                        <left>2</left>
+                        <top>78</top>
+                        <width>760</width>
+                        <height>38</height>
+                        <font>Tiny</font>
+                        <textcolor>Dark2</textcolor>
+                        <label>Filme und Serien durchsuchen</label>
+                    </control>
                     <control type="button" id="9200">
                         <left>0</left>
                         <top>115</top>
                         <width>760</width>
                         <height>78</height>
-                        <label>Film oder Serie suchen</label>
+                        <label>Suchbegriff eingeben...</label>
                         <font>Medium</font>
                         <textoffsetx>86</textoffsetx>
                         <aligny>center</aligny>

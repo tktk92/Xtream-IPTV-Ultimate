@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="skin.xtream.ultimate" version="0.1.5" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
+<addon id="skin.xtream.ultimate" version="0.1.9" name="Ultimate IPTV" provider-name="Sui, based on Arctic Zephyr Reloaded">
     <requires>
         <import addon="xbmc.gui" version="5.17.0"/>
         <import addon="script.skinshortcuts" version="0.4.0"/>
@@ -25,6 +25,6 @@
             <icon>icon.png</icon>
             <fanart>fanart.jpg</fanart>
         </assets>
-        <news>0.1.5[CR]- TV zeigt ein eigenes Live-TV-Panel statt Film-Widgets.[CR]- Linkes Menue bleibt beim Fokus auf Quick-Buttons sichtbar.[CR]0.1.4[CR]- Einstellungen und Power Quick-Icons in der aktiven vertikalen Widget-Ansicht eingebunden.[CR]- Suchen zeigt ein eigenes Suchfeld statt der Film-Widgets.[CR]0.1.3[CR]- Einstellungen und Power Quick-Icons sichtbar unten links positioniert.[CR]- Auto-Trailer spielt reine YouTube-IDs ueber das YouTube-Addon ab.[CR]0.1.2[CR]- Hauptmenue auf Suchen, Filme, Serien und TV reduziert.[CR]- Einstellungen und Power als Quick-Icons unten links.[CR]0.1.0[CR]- Initialer Ultimate IPTV Skin-Fork.[CR]- Eigenes Branding auf dem Startbildschirm.</news>
+        <news>0.1.9[CR]- Homescreen startet standardmaessig auf Filme.[CR]- Suchen zeigt ein Eingabefeld-Widget.[CR]- Auto-Trailer nutzt wieder den alten Arctic-Fenstermechanismus.[CR]0.1.8[CR]- Trailerfenster wird direkt ueber den Home-Controls gezeichnet.[CR]- Trailererkennung nutzt Player.HasVideo statt instabiler Pfadvergleiche.[CR]0.1.7[CR]- Trailerfenster wird nach Fanart/Overlays gezeichnet und bleibt sichtbar.[CR]0.1.6[CR]- YouTube-Auto-Trailer bleiben im Skin-Trailerfenster sichtbar.[CR]- Video-Playback wird beim Verlassen des Fullscreen-Players gestoppt.[CR]0.1.5[CR]- TV zeigt ein eigenes Live-TV-Panel statt Film-Widgets.[CR]- Linkes Menue bleibt beim Fokus auf Quick-Buttons sichtbar.[CR]0.1.4[CR]- Einstellungen und Power Quick-Icons in der aktiven vertikalen Widget-Ansicht eingebunden.[CR]- Suchen zeigt ein eigenes Suchfeld statt der Film-Widgets.[CR]0.1.3[CR]- Einstellungen und Power Quick-Icons sichtbar unten links positioniert.[CR]- Auto-Trailer spielt reine YouTube-IDs ueber das YouTube-Addon ab.[CR]0.1.2[CR]- Hauptmenue auf Suchen, Filme, Serien und TV reduziert.[CR]- Einstellungen und Power als Quick-Icons unten links.[CR]0.1.0[CR]- Initialer Ultimate IPTV Skin-Fork.[CR]- Eigenes Branding auf dem Startbildschirm.</news>
     </extension>
 </addon>

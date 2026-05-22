@@ -1023,6 +1023,7 @@
             </animation>
             <texture colordiffuse="FloorFade">common/floor2.png</texture>
         </control>
+
     </include>
 
     <include name="GlobalBackgroundExtended">
