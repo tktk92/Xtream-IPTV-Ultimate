@@ -8,8 +8,10 @@ import xbmc
 import xbmcgui
 import xbmcvfs
 from common import get_movie_strm_path, get_series_strm_path
+from language_filter import extract_language_from_category
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+MOVIE_LANGUAGE_GENRES = {"Tamil"}
 
 
 def clean_filename(name):
@@ -203,13 +205,28 @@ def build_movie_nfo(title, metadata=None):
         lines.append("  <tmdbid>{0}</tmdbid>".format(escape(tmdb_id)))
         lines.append("  <id>{0}</id>".format(escape(tmdb_id)))
         lines.append("  <url cache=\"tmdb-{0}.json\">https://www.themoviedb.org/movie/{0}</url>".format(escape(tmdb_id)))
+    genre_names = []
     for genre in metadata.get("genres", []) or []:
         if isinstance(genre, dict):
             genre_name = genre.get("name")
         else:
             genre_name = genre
         if genre_name:
-            lines.append("  <genre>{0}</genre>".format(escape(str(genre_name))))
+            genre_names.append(str(genre_name))
+
+    language = extract_language_from_category(
+        metadata.get("category_name") or metadata.get("category_name_export") or ""
+    )
+    if language in MOVIE_LANGUAGE_GENRES:
+        genre_names.append(language)
+
+    seen_genres = set()
+    for genre_name in genre_names:
+        key = genre_name.strip().lower()
+        if not key or key in seen_genres:
+            continue
+        seen_genres.add(key)
+        lines.append("  <genre>{0}</genre>".format(escape(str(genre_name))))
     if poster_url:
         lines.append("  <thumb aspect=\"poster\">{0}</thumb>".format(escape(poster_url)))
     if fanart_url:

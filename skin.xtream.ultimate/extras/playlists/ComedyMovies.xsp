@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<smartplaylist type="movies">
+    <name>Comedy Movies</name>
+    <match>one</match>
+    <rule field="genre" operator="contains">
+        <value>Comedy</value>
+    </rule>
+    <rule field="genre" operator="contains">
+        <value>Komoedie</value>
+    </rule>
+    <rule field="genre" operator="contains">
+        <value>Komödie</value>
+    </rule>
+    <limit>25</limit>
+    <order direction="descending">dateadded</order>
+</smartplaylist>
