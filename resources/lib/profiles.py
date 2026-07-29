@@ -182,7 +182,11 @@ def _get_profile_preference_categories():
 def configure_current_profile_preferences(force=False):
     version = _current_addon_version()
     state = _load_profile_setup_state()
-    if not force and state.get("preferences_addon_version") == version:
+    if not force and (
+        state.get("preferences_completed_at")
+        or state.get("preferences_postponed_at")
+        or state.get("preferences_addon_version") == version
+    ):
         return False
 
     config_path = _master_profile_path("addon_data", ADDON_ID, "config.json")
@@ -199,6 +203,7 @@ def configure_current_profile_preferences(force=False):
         nolabel="Spaeter",
         yeslabel="Einrichten",
     ):
+        state["preferences_addon_version"] = version
         state["preferences_postponed_at"] = int(time.time())
         _save_profile_setup_state(state)
         return False
@@ -629,11 +634,12 @@ def apply_profiles_after_update(progress=None):
 
     if kodi_profiles_are_configured():
         if not state.get("completed") or state.get("addon_version") != version:
-            _save_profile_setup_state({
+            state.update({
                 "addon_version": version,
                 "completed": True,
                 "verified_at": int(time.time()),
             })
+            _save_profile_setup_state(state)
         return False
 
     if (
@@ -652,12 +658,13 @@ def apply_profiles_after_update(progress=None):
             progress.update(45, "LoginScreen wird fuer den naechsten Kodi-Start vorbereitet...\n\nKodi wird danach einmal neu gestartet.")
 
         if _start_windows_profile_bootstrap(show_dialog=False):
-            _save_profile_setup_state({
+            state.update({
                 "addon_version": version,
                 "completed": False,
                 "bootstrap_started": True,
                 "bootstrap_started_at": int(time.time()),
             })
+            _save_profile_setup_state(state)
             xbmc.log("[IPTV Addon] Kodi Profil-Bootstrap automatisch gestartet: " + version, xbmc.LOGINFO)
             return True
     except Exception as exc:
