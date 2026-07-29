@@ -19,22 +19,22 @@ from common import ADDON_ID, ADDON_PROFILE
 
 PROFILE_DEFINITIONS = (
     {
-        "name": "Erwachsene",
-        "directory": "profiles/Erwachsene/",
-        "content_profile": "adult",
-    },
-    {
         "name": "Kinder",
         "directory": "profiles/Kinder/",
         "content_profile": "kids",
+        "thumbnail": "special://home/addons/plugin.video.xtream.strm/resources/media/series.png",
     },
     {
         "name": "Gast",
         "directory": "profiles/Gast/",
         "content_profile": "guest",
+        "thumbnail": "special://home/addons/plugin.video.xtream.strm/resources/media/kodi.png",
     },
 )
 
+DEPRECATED_PROFILE_NAMES = ("Erwachsene",)
+MASTER_PROFILE_FALLBACK_NAME = "Benutzer"
+MASTER_PROFILE_FALLBACK_THUMBNAIL = "special://home/addons/plugin.video.xtream.strm/resources/media/credentials.png"
 PROFILE_SETUP_STATE_FILE = "profile_setup_state.json"
 PROFILE_BOOTSTRAP_FILE = "profile_bootstrap.ps1"
 MOVIE_PROFILE_GENRES = (
@@ -156,7 +156,46 @@ def _current_profile_name():
             return value.strip()
     except Exception:
         pass
-    return "Erwachsene"
+    return MASTER_PROFILE_FALLBACK_NAME
+
+
+def _master_config_path():
+    return _master_profile_path("addon_data", ADDON_ID, "config.json")
+
+
+def _master_profile_identity():
+    config = _read_json(_master_config_path())
+    name = str(config.get("profile_display_name") or "").strip()
+    if not name or name.strip().lower() == "master user":
+        name = MASTER_PROFILE_FALLBACK_NAME
+    thumbnail = str(config.get("profile_icon") or "").strip() or MASTER_PROFILE_FALLBACK_THUMBNAIL
+    return name, thumbnail
+
+
+def _select_profile_icon(current_icon=""):
+    default_icon = current_icon or MASTER_PROFILE_FALLBACK_THUMBNAIL
+    if not xbmcgui.Dialog().yesno(
+        "Profilbild",
+        "Moechtest du ein Icon fuer dieses Kodi-Profil auswaehlen?",
+        nolabel="Ueberspringen",
+        yeslabel="Auswaehlen",
+    ):
+        return default_icon
+
+    try:
+        selected = xbmcgui.Dialog().browse(
+            2,
+            "Profilbild auswaehlen",
+            "pictures",
+            ".png|.jpg|.jpeg",
+            True,
+            False,
+            default_icon,
+        )
+    except Exception:
+        selected = ""
+
+    return selected or default_icon
 
 
 def _select_categories(title, categories, selected_categories=None):
@@ -189,7 +228,7 @@ def configure_current_profile_preferences(force=False):
     ):
         return False
 
-    config_path = _master_profile_path("addon_data", ADDON_ID, "config.json")
+    config_path = _master_config_path()
     if not os.path.exists(config_path):
         config_path = _translate("special://profile/addon_data/%s/config.json" % ADDON_ID)
 
@@ -211,6 +250,7 @@ def configure_current_profile_preferences(force=False):
     profile_name = xbmcgui.Dialog().input("Profilname", defaultt=current_name, type=xbmcgui.INPUT_ALPHANUM)
     if not profile_name:
         profile_name = current_name
+    profile_icon = _select_profile_icon(config.get("profile_icon") or "")
 
     movie_categories, series_categories = _get_profile_preference_categories()
     selected_movies = _select_categories(
@@ -230,12 +270,17 @@ def configure_current_profile_preferences(force=False):
         selected_series = config.get("preferred_series_genres") or config.get("preferred_series_categories", [])
 
     config["profile_display_name"] = profile_name.strip() or current_name
+    config["profile_icon"] = profile_icon
     config["preferred_movie_genres"] = selected_movies
     config["preferred_series_genres"] = selected_series
     config.pop("preferred_movie_categories", None)
     config.pop("preferred_series_categories", None)
     config["profile_preferences_updated_at"] = int(time.time())
     _write_json(config_path, config)
+    try:
+        setup_kodi_profiles(show_dialog=False)
+    except Exception as exc:
+        xbmc.log("[IPTV Addon] Kodi Profilname/Icon konnte nicht direkt aktualisiert werden: %s" % exc, xbmc.LOGWARNING)
 
     state["preferences_addon_version"] = version
     state["preferences_completed_at"] = int(time.time())
@@ -358,12 +403,59 @@ def _ensure_text_node(root, tag, value):
     return node
 
 
+def _ensure_path_node(parent, tag, value):
+    node = parent.find(tag)
+    if node is None:
+        node = ET.SubElement(parent, tag, {"pathversion": "1"})
+    node.set("pathversion", "1")
+    node.text = str(value or "")
+    return node
+
+
+def _profile_node_by_id(root, profile_id):
+    wanted = str(profile_id)
+    for node in root.findall("profile"):
+        if (node.findtext("id") or "").strip() == wanted:
+            return node
+    return None
+
+
+def _profile_node_by_name(root, name):
+    wanted = str(name or "").strip().lower()
+    for node in root.findall("profile"):
+        if (node.findtext("name") or "").strip().lower() == wanted:
+            return node
+    return None
+
+
+def _remove_deprecated_profiles(root):
+    removed = []
+    deprecated = set(name.strip().lower() for name in DEPRECATED_PROFILE_NAMES)
+    for node in list(root.findall("profile")):
+        name = (node.findtext("name") or "").strip()
+        if name.strip().lower() in deprecated:
+            root.remove(node)
+            removed.append(name)
+    return removed
+
+
+def _configure_master_profile(root):
+    name, thumbnail = _master_profile_identity()
+    node = _profile_node_by_id(root, 0)
+    if node is None:
+        return False
+
+    _ensure_text_node(node, "name", name)
+    _ensure_path_node(node, "thumbnail", thumbnail)
+    return True
+
+
 def _append_profile(root, profile_id, profile_def):
     node = ET.SubElement(root, "profile")
     ET.SubElement(node, "id").text = str(profile_id)
     ET.SubElement(node, "name").text = profile_def["name"]
     ET.SubElement(node, "directory", {"pathversion": "1"}).text = profile_def["directory"]
-    ET.SubElement(node, "thumbnail", {"pathversion": "1"}).text = ""
+    ET.SubElement(node, "thumbnail", {"pathversion": "1"}).text = profile_def.get("thumbnail", "")
     ET.SubElement(node, "hasdatabases").text = "true"
     ET.SubElement(node, "canwritedatabases").text = "true"
     ET.SubElement(node, "hassources").text = "true"
@@ -395,9 +487,18 @@ def _profiles_xml_is_configured():
         return False
 
     names = _profile_names(root)
+    for deprecated_name in DEPRECATED_PROFILE_NAMES:
+        if deprecated_name.strip().lower() in names:
+            return False
+
     for profile_def in PROFILE_DEFINITIONS:
         if profile_def["name"].strip().lower() not in names:
             return False
+
+    master_node = _profile_node_by_id(root, 0)
+    master_name, _thumbnail = _master_profile_identity()
+    if master_node is not None and (master_node.findtext("name") or "").strip() != master_name:
+        return False
 
     return True
 
@@ -418,16 +519,19 @@ def _powershell_string(value):
 
 
 def _build_profile_bootstrap_script(profiles_path, kodi_executable):
+    main_name, main_thumbnail = _master_profile_identity()
     profile_entries = []
     for profile_def in PROFILE_DEFINITIONS:
         profile_entries.append(
-            "@{Name=%s; Directory=%s; ContentProfile=%s}"
+            "@{Name=%s; Directory=%s; ContentProfile=%s; Thumbnail=%s}"
             % (
                 _powershell_string(profile_def["name"]),
                 _powershell_string(profile_def["directory"]),
                 _powershell_string(profile_def["content_profile"]),
+                _powershell_string(profile_def.get("thumbnail", "")),
             )
         )
+    deprecated_entries = ", ".join(_powershell_string(name) for name in DEPRECATED_PROFILE_NAMES)
 
     restart_block = ""
     if kodi_executable and os.path.exists(kodi_executable):
@@ -438,6 +542,9 @@ Start-Process -FilePath {0}
 
     return r"""$ErrorActionPreference = 'Stop'
 $profilesPath = {profiles_path}
+$mainProfileName = {main_profile_name}
+$mainProfileThumbnail = {main_profile_thumbnail}
+$deprecatedProfiles = @({deprecated_profiles})
 $profiles = @(
     {profile_entries}
 )
@@ -477,7 +584,7 @@ function Ensure-Profile($root, $profile, [int]$id) {{
         @('id', [string]$id),
         @('name', $profile.Name),
         @('directory', $profile.Directory),
-        @('thumbnail', ''),
+        @('thumbnail', $profile.Thumbnail),
         @('hasdatabases', 'true'),
         @('canwritedatabases', 'true'),
         @('hassources', 'true'),
@@ -510,6 +617,35 @@ function Ensure-Profile($root, $profile, [int]$id) {{
     return $true
 }}
 
+function Ensure-MainProfile($root) {{
+    foreach ($existing in @($root.profile)) {{
+        if ([string]$existing.id -eq '0') {{
+            Ensure-TextNode $existing 'name' $mainProfileName
+            Ensure-TextNode $existing 'thumbnail' $mainProfileThumbnail
+            if ($existing.thumbnail) {{
+                $attr = $existing.thumbnail.Attributes['pathversion']
+                if ($null -eq $attr) {{
+                    $attr = $xml.CreateAttribute('pathversion')
+                    [void]$existing.thumbnail.Attributes.Append($attr)
+                }}
+                $attr.Value = '1'
+            }}
+            return
+        }}
+    }}
+}}
+
+function Remove-DeprecatedProfiles($root) {{
+    foreach ($existing in @($root.profile)) {{
+        foreach ($deprecated in $deprecatedProfiles) {{
+            if ($existing.name -and $existing.name.Trim().ToLowerInvariant() -eq $deprecated.Trim().ToLowerInvariant()) {{
+                [void]$root.RemoveChild($existing)
+                break
+            }}
+        }}
+    }}
+}}
+
 $maxId = -1
 foreach ($existing in @($root.profile)) {{
     $parsed = 0
@@ -521,6 +657,8 @@ foreach ($existing in @($root.profile)) {{
 }}
 
 $nextId = $maxId + 1
+Ensure-MainProfile $root
+Remove-DeprecatedProfiles $root
 foreach ($profile in $profiles) {{
     if (Ensure-Profile $root $profile $nextId) {{
         $nextId++
@@ -540,6 +678,9 @@ $writer.Close()
 {restart_block}
 """.format(
         profiles_path=_powershell_string(profiles_path),
+        main_profile_name=_powershell_string(main_name),
+        main_profile_thumbnail=_powershell_string(main_thumbnail),
+        deprecated_profiles=deprecated_entries,
         profile_entries=",\n    ".join(profile_entries),
         restart_block=restart_block,
     )
@@ -587,6 +728,8 @@ def setup_kodi_profiles(show_dialog=True):
     shutil.copy2(profiles_path, backup_path)
 
     root = ET.parse(profiles_path).getroot()
+    _configure_master_profile(root)
+    removed = _remove_deprecated_profiles(root)
     names = _profile_names(root)
     next_id = _next_profile_id(root)
     added = []
@@ -606,8 +749,9 @@ def setup_kodi_profiles(show_dialog=True):
     _write_xml(profiles_path, root)
 
     xbmc.log(
-        "[IPTV Addon] Kodi Profile eingerichtet. Neu: {0}. Backup: {1}".format(
+        "[IPTV Addon] Kodi Profile eingerichtet. Neu: {0}. Entfernt: {1}. Backup: {2}".format(
             ", ".join(added) if added else "keine",
+            ", ".join(removed) if removed else "keine",
             backup_path,
         ),
         xbmc.LOGINFO,
@@ -616,11 +760,13 @@ def setup_kodi_profiles(show_dialog=True):
     if show_dialog:
         message = (
             "LoginScreen wurde aktiviert.\n\n"
-            "Profile: Erwachsene, Kinder, Gast\n\n"
+            "Profile: {0}, Kinder, Gast\n\n".format(_master_profile_identity()[0]) +
             "Kodi sollte einmal neu gestartet werden, damit die Profilauswahl sicher vor dem Homescreen erscheint."
         )
         if added:
             message += "\n\nNeu angelegt: " + ", ".join(added)
+        if removed:
+            message += "\n\nEntfernt: " + ", ".join(removed)
         else:
             message += "\n\nDie Profile waren bereits vorhanden."
         xbmcgui.Dialog().ok("Profile eingerichtet", message)
@@ -651,7 +797,7 @@ def apply_profiles_after_update(progress=None):
 
     try:
         if progress:
-            progress.update(25, "Kodi-Profile werden vorbereitet...\n\nProfile: Erwachsene, Kinder, Gast")
+            progress.update(25, "Kodi-Profile werden vorbereitet...\n\nProfile: {0}, Kinder, Gast".format(_master_profile_identity()[0]))
         _prepare_profile_folders()
 
         if progress:
