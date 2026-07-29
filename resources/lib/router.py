@@ -155,6 +155,12 @@ def router():
     elif mode == "library_series":
         library.show_series_library()
 
+    elif mode == "continue_series":
+        library.show_continue_series()
+
+    elif mode == "play_next_tvshow":
+        library.play_next_tvshow(params.get("tvshowid"))
+
     elif mode == "library_seasons":
         library.show_library_seasons(params.get("path"))
 
