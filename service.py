@@ -62,7 +62,7 @@ class XtreamStrmService(xbmc.Monitor):
             profiles_updated = apply_profiles_after_update(progress=progress)
 
             if profiles_updated and progress:
-                progress.update(85, "Profil-Update ist vorbereitet.\n\nKodi wird jetzt beendet und danach automatisch neu gestartet.")
+                progress.update(85, "Profil-Update ist vorbereitet.\n\nBitte Kodi danach einmal neu starten.")
 
             skin_updated = apply_arctic_zephyr_reloaded_after_update()
             preferences_updated = False
@@ -82,17 +82,12 @@ class XtreamStrmService(xbmc.Monitor):
             ))
 
             if profiles_updated:
-                if progress:
-                    progress.update(100, "Profil-Update startet jetzt...\n\nKodi wird kurz geschlossen.")
-                    xbmc.sleep(1000)
-                    progress.close()
-                    progress = None
-                xbmcgui.Dialog().ok(
+                xbmcgui.Dialog().notification(
                     "Xtream IPTV Ultimate",
-                    "Die Kodi-Profile werden jetzt sicher eingerichtet.\n\n"
-                    "Kodi wird geschlossen, die Profile werden eingetragen und Kodi startet danach automatisch neu."
+                    "Profile vorbereitet. Bitte Kodi neu starten.",
+                    xbmcgui.NOTIFICATION_INFO,
+                    5000,
                 )
-                xbmc.executebuiltin("Quit")
         except Exception as exc:
             log("Update-Aufgaben fehlgeschlagen: " + str(exc), xbmc.LOGERROR)
             if needs_visible_update:

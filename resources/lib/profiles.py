@@ -4,8 +4,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
-import sys
 import time
 import xml.etree.ElementTree as ET
 
@@ -36,7 +34,6 @@ DEPRECATED_PROFILE_NAMES = ("Erwachsene",)
 MASTER_PROFILE_FALLBACK_NAME = "Benutzer"
 MASTER_PROFILE_FALLBACK_THUMBNAIL = "special://home/addons/plugin.video.xtream.strm/resources/media/credentials.png"
 PROFILE_SETUP_STATE_FILE = "profile_setup_state.json"
-PROFILE_BOOTSTRAP_FILE = "profile_bootstrap.ps1"
 MOVIE_PROFILE_GENRES = (
     "Action",
     "Abenteuer",
@@ -143,10 +140,6 @@ def _load_profile_setup_state():
 
 def _save_profile_setup_state(data):
     _write_json(_profile_setup_state_path(), data)
-
-
-def _profile_bootstrap_path():
-    return _translate("%s/%s" % (ADDON_PROFILE, PROFILE_BOOTSTRAP_FILE))
 
 
 def _current_profile_name():
@@ -514,209 +507,6 @@ def kodi_profiles_are_configured():
     return True
 
 
-def _powershell_string(value):
-    return "'" + str(value).replace("'", "''") + "'"
-
-
-def _build_profile_bootstrap_script(profiles_path, kodi_executable):
-    main_name, main_thumbnail = _master_profile_identity()
-    profile_entries = []
-    for profile_def in PROFILE_DEFINITIONS:
-        profile_entries.append(
-            "@{Name=%s; Directory=%s; ContentProfile=%s; Thumbnail=%s}"
-            % (
-                _powershell_string(profile_def["name"]),
-                _powershell_string(profile_def["directory"]),
-                _powershell_string(profile_def["content_profile"]),
-                _powershell_string(profile_def.get("thumbnail", "")),
-            )
-        )
-    deprecated_entries = ", ".join(_powershell_string(name) for name in DEPRECATED_PROFILE_NAMES)
-
-    restart_block = ""
-    if kodi_executable and os.path.exists(kodi_executable):
-        restart_block = """
-Start-Sleep -Seconds 1
-Start-Process -FilePath {0}
-""".format(_powershell_string(kodi_executable))
-
-    return r"""$ErrorActionPreference = 'Stop'
-$profilesPath = {profiles_path}
-$mainProfileName = {main_profile_name}
-$mainProfileThumbnail = {main_profile_thumbnail}
-$deprecatedProfiles = @({deprecated_profiles})
-$profiles = @(
-    {profile_entries}
-)
-
-while (Get-Process -Name kodi -ErrorAction SilentlyContinue) {{
-    Start-Sleep -Milliseconds 500
-}}
-
-if (-not (Test-Path -LiteralPath $profilesPath)) {{
-    exit 2
-}}
-
-$backupPath = $profilesPath + '.ultimate-bootstrap-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
-Copy-Item -LiteralPath $profilesPath -Destination $backupPath -Force
-
-[xml]$xml = Get-Content -LiteralPath $profilesPath -Raw
-$root = $xml.profiles
-
-function Ensure-TextNode($parent, $name, $value) {{
-    $node = $parent.SelectSingleNode($name)
-    if ($null -eq $node) {{
-        $node = $xml.CreateElement($name)
-        [void]$parent.AppendChild($node)
-    }}
-    $node.InnerText = $value
-}}
-
-function Ensure-Profile($root, $profile, [int]$id) {{
-    foreach ($existing in @($root.profile)) {{
-        if ($existing.name -and $existing.name.Trim().ToLowerInvariant() -eq $profile.Name.Trim().ToLowerInvariant()) {{
-            return $false
-        }}
-    }}
-
-    $node = $xml.CreateElement('profile')
-    $fields = @(
-        @('id', [string]$id),
-        @('name', $profile.Name),
-        @('directory', $profile.Directory),
-        @('thumbnail', $profile.Thumbnail),
-        @('hasdatabases', 'true'),
-        @('canwritedatabases', 'true'),
-        @('hassources', 'true'),
-        @('canwritesources', 'true'),
-        @('lockaddonmanager', 'false'),
-        @('locksettings', '0'),
-        @('lockfiles', 'false'),
-        @('lockmusic', 'false'),
-        @('lockvideo', 'false'),
-        @('lockpictures', 'false'),
-        @('lockprograms', 'false'),
-        @('lockgames', 'false'),
-        @('lockmode', '0'),
-        @('lockcode', ''),
-        @('lastdate', '')
-    )
-
-    foreach ($field in $fields) {{
-        $child = $xml.CreateElement($field[0])
-        if ($field[0] -eq 'directory' -or $field[0] -eq 'thumbnail') {{
-            $attr = $xml.CreateAttribute('pathversion')
-            $attr.Value = '1'
-            [void]$child.Attributes.Append($attr)
-        }}
-        $child.InnerText = $field[1]
-        [void]$node.AppendChild($child)
-    }}
-
-    [void]$root.AppendChild($node)
-    return $true
-}}
-
-function Ensure-MainProfile($root) {{
-    foreach ($existing in @($root.profile)) {{
-        if ([string]$existing.id -eq '0') {{
-            Ensure-TextNode $existing 'name' $mainProfileName
-            Ensure-TextNode $existing 'thumbnail' $mainProfileThumbnail
-            if ($existing.thumbnail) {{
-                $attr = $existing.thumbnail.Attributes['pathversion']
-                if ($null -eq $attr) {{
-                    $attr = $xml.CreateAttribute('pathversion')
-                    [void]$existing.thumbnail.Attributes.Append($attr)
-                }}
-                $attr.Value = '1'
-            }}
-            return
-        }}
-    }}
-}}
-
-function Remove-DeprecatedProfiles($root) {{
-    foreach ($existing in @($root.profile)) {{
-        foreach ($deprecated in $deprecatedProfiles) {{
-            if ($existing.name -and $existing.name.Trim().ToLowerInvariant() -eq $deprecated.Trim().ToLowerInvariant()) {{
-                [void]$root.RemoveChild($existing)
-                break
-            }}
-        }}
-    }}
-}}
-
-$maxId = -1
-foreach ($existing in @($root.profile)) {{
-    $parsed = 0
-    if ([int]::TryParse([string]$existing.id, [ref]$parsed)) {{
-        if ($parsed -gt $maxId) {{
-            $maxId = $parsed
-        }}
-    }}
-}}
-
-$nextId = $maxId + 1
-Ensure-MainProfile $root
-Remove-DeprecatedProfiles $root
-foreach ($profile in $profiles) {{
-    if (Ensure-Profile $root $profile $nextId) {{
-        $nextId++
-    }}
-}}
-
-Ensure-TextNode $root 'useloginscreen' 'true'
-Ensure-TextNode $root 'autologin' '-1'
-Ensure-TextNode $root 'nextIdProfile' ([string]$nextId)
-
-$settings = New-Object System.Xml.XmlWriterSettings
-$settings.Indent = $true
-$settings.Encoding = New-Object System.Text.UTF8Encoding($false)
-$writer = [System.Xml.XmlWriter]::Create($profilesPath, $settings)
-$xml.Save($writer)
-$writer.Close()
-{restart_block}
-""".format(
-        profiles_path=_powershell_string(profiles_path),
-        main_profile_name=_powershell_string(main_name),
-        main_profile_thumbnail=_powershell_string(main_thumbnail),
-        deprecated_profiles=deprecated_entries,
-        profile_entries=",\n    ".join(profile_entries),
-        restart_block=restart_block,
-    )
-
-
-def _start_windows_profile_bootstrap(show_dialog=True):
-    if os.name != "nt":
-        if show_dialog:
-            xbmcgui.Dialog().ok(
-                "Profile",
-                "Automatische Profileinrichtung ist aktuell nur fuer Windows vorbereitet.\n\n"
-                "Oeffne bitte Kodi Profileinstellungen und aktiviere den LoginScreen manuell.",
-            )
-        return False
-
-    profiles_path = _master_profile_path("profiles.xml")
-    bootstrap_path = _profile_bootstrap_path()
-    kodi_executable = sys.executable if sys.executable else ""
-
-    _ensure_dir(os.path.dirname(bootstrap_path))
-    with open(bootstrap_path, "w", encoding="utf-8") as handle:
-        handle.write(_build_profile_bootstrap_script(profiles_path, kodi_executable))
-
-    command = [
-        "powershell.exe",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        bootstrap_path,
-    ]
-    subprocess.Popen(command, close_fds=True)
-    xbmc.log("[IPTV Addon] Kodi Profil-Bootstrap vorbereitet: " + bootstrap_path, xbmc.LOGINFO)
-    return True
-
-
 def setup_kodi_profiles(show_dialog=True):
     profiles_path = _master_profile_path("profiles.xml")
     if not os.path.exists(profiles_path):
@@ -761,7 +551,7 @@ def setup_kodi_profiles(show_dialog=True):
         message = (
             "LoginScreen wurde aktiviert.\n\n"
             "Profile: {0}, Kinder, Gast\n\n".format(_master_profile_identity()[0]) +
-            "Kodi sollte einmal neu gestartet werden, damit die Profilauswahl sicher vor dem Homescreen erscheint."
+            "Bitte Kodi einmal neu starten, damit die Profilauswahl sicher vor dem Homescreen erscheint."
         )
         if added:
             message += "\n\nNeu angelegt: " + ", ".join(added)
@@ -790,8 +580,8 @@ def apply_profiles_after_update(progress=None):
 
     if (
         state.get("addon_version") == version
-        and state.get("bootstrap_started")
-        and int(time.time()) - int(state.get("bootstrap_started_at", 0) or 0) < 60
+        and state.get("setup_started")
+        and int(time.time()) - int(state.get("setup_started_at", 0) or 0) < 60
     ):
         return False
 
@@ -801,17 +591,20 @@ def apply_profiles_after_update(progress=None):
         _prepare_profile_folders()
 
         if progress:
-            progress.update(45, "LoginScreen wird fuer den naechsten Kodi-Start vorbereitet...\n\nKodi wird danach einmal neu gestartet.")
+            progress.update(45, "LoginScreen und Profilnamen werden vorbereitet...\n\nBitte Kodi danach einmal neu starten.")
 
-        if _start_windows_profile_bootstrap(show_dialog=False):
+        if setup_kodi_profiles(show_dialog=False):
             state.update({
                 "addon_version": version,
-                "completed": False,
-                "bootstrap_started": True,
-                "bootstrap_started_at": int(time.time()),
+                "completed": True,
+                "setup_started": True,
+                "setup_started_at": int(time.time()),
+                "verified_at": int(time.time()),
             })
+            state.pop("bootstrap_started", None)
+            state.pop("bootstrap_started_at", None)
             _save_profile_setup_state(state)
-            xbmc.log("[IPTV Addon] Kodi Profil-Bootstrap automatisch gestartet: " + version, xbmc.LOGINFO)
+            xbmc.log("[IPTV Addon] Kodi Profile plattformneutral vorbereitet: " + version, xbmc.LOGINFO)
             return True
     except Exception as exc:
         xbmc.log("[IPTV Addon] Kodi Profil-Autoeinrichtung fehlgeschlagen: %s" % exc, xbmc.LOGERROR)

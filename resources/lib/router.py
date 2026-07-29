@@ -82,14 +82,13 @@ def router():
                 xbmcgui.Dialog().ok(
                     "Profile",
                     "Die Profile wurden vorbereitet.\n\n"
-                    "Kodi wird jetzt geschlossen, die Profil-Liste wird sicher geschrieben und Kodi startet danach automatisch neu."
+                    "Bitte Kodi einmal neu starten, damit die Profilauswahl sicher vor dem Homescreen erscheint."
                 )
-                xbmc.executebuiltin("Quit")
             else:
                 xbmcgui.Dialog().ok(
                     "Profile",
                     "Die Profile sind noch nicht aktiv.\n\n"
-                    "Falls Kodi gerade neu startet, warte kurz und starte die Funktion danach erneut."
+                    "Bitte Kodi einmal neu starten und danach erneut pruefen."
                 )
 
     elif mode == "movies_menu":
