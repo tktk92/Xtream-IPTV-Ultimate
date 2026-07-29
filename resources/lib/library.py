@@ -69,6 +69,19 @@ def _special_path(path):
     return xbmcvfs.translatePath(path)
 
 
+def _get_art_map(conn, media_type, media_id):
+    rows = conn.execute(
+        """
+        SELECT type, url
+        FROM art
+        WHERE media_type = ?
+          AND media_id = ?
+        """,
+        (media_type, media_id),
+    ).fetchall()
+    return dict((row["type"], row["url"]) for row in rows if row["type"] and row["url"])
+
+
 def get_continue_series_from_database(limit=50):
     try:
         import sqlite3
@@ -102,6 +115,7 @@ def get_continue_series_from_database(limit=50):
             ).fetchall()
 
             for show in shows:
+                show_art = _get_art_map(conn, "tvshow", show["idShow"])
                 episode = conn.execute(
                     """
                     SELECT idEpisode, strTitle, c12 AS season, c13 AS episode, c00 AS title,
@@ -143,6 +157,9 @@ def get_continue_series_from_database(limit=50):
                     "title": show["title"],
                     "episode": show["totalCount"],
                     "watchedepisodes": show["watchedcount"],
+                    "art": show_art,
+                    "thumbnail": show_art.get("poster") or show_art.get("thumb") or show_art.get("landscape"),
+                    "fanart": show_art.get("fanart") or show_art.get("landscape"),
                     "next_episode": {
                         "episodeid": episode["idEpisode"],
                         "showtitle": episode["strTitle"],

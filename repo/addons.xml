@@ -20,7 +20,7 @@
 </addon>
 <addon id="plugin.video.xtream.strm"
        name="Xtream IPTV Ultimate"
-       version="1.0.82"
+       version="1.0.83"
        provider-name="Sui">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
@@ -35,7 +35,7 @@
     <extension point="xbmc.addon.metadata">
         <summary lang="de_DE">Xtream IPTV Inhalte als Kodi-Bibliothek nutzen</summary>
         <description lang="de_DE">Erstellt und verwaltet Filme und Serien aus legalen Xtream IPTV-Zugaengen als Kodi-Bibliothek.</description>
-        <news>1.0.82[CR]- Serien fortsetzen nutzt begonnene Serien aus der Kodi-Bibliothek.[CR]- Klick auf eine begonnene Serie startet direkt die naechste Folge.[CR]- Fortsetzen-Widget liest robuste Next-Episode-Daten aus Kodis Video-Datenbank.</news>
+        <news>1.0.83[CR]- Serien fortsetzen zeigt wieder Poster und Fanart aus Kodis Bibliothek.[CR]1.0.82[CR]- Serien fortsetzen nutzt begonnene Serien aus der Kodi-Bibliothek.[CR]- Klick auf eine begonnene Serie startet direkt die naechste Folge.[CR]- Fortsetzen-Widget liest robuste Next-Episode-Daten aus Kodis Video-Datenbank.</news>
         <platform>all</platform>
     </extension>
 </addon>
