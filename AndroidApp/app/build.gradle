@@ -1,0 +1,33 @@
+plugins {
+    id "com.android.application"
+}
+
+def localProps = new Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { stream -> localProps.load(stream) }
+}
+
+def escapeBuildConfigString = { value ->
+    '"' + value.replace("\\", "\\\\").replace("\"", "\\\"") + '"'
+}
+
+android {
+    namespace "com.example.xtreamiptvultimate"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.xtreamiptvultimate"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        buildConfigField "String", "XAI_API_KEY", escapeBuildConfigString(localProps.getProperty("xaiApiKey", "PASTE_XAI_API_KEY_HERE"))
+        buildConfigField "String", "XAI_MODEL", escapeBuildConfigString(localProps.getProperty("xaiModel", "grok-4.5"))
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}

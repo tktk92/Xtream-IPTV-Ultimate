@@ -43,9 +43,16 @@ tempCodeRunnerFile.py
 .env
 .env.*
 .envrc
+local.properties
+AndroidApp/local.properties
 *.secret
 secrets.*
 .pypirc
+
+# Android/Gradle local build artifacts
+.gradle/
+AndroidApp/.gradle/
+AndroidApp/**/build/
 
 # Kodi local runtime/user data
 userdata/
