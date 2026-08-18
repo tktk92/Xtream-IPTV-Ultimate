@@ -47,6 +47,8 @@ local.properties
 AndroidApp/local.properties
 keystore.properties
 AndroidApp/keystore.properties
+upload.properties
+AndroidApp/upload.properties
 *.jks
 *.keystore
 *.p12

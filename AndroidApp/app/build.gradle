@@ -8,6 +8,16 @@ if (localPropsFile.exists()) {
     localPropsFile.withInputStream { stream -> localProps.load(stream) }
 }
 
+def uploadProps = new Properties()
+def uploadPropsFile = rootProject.file("upload.properties")
+if (uploadPropsFile.exists()) {
+    uploadPropsFile.withInputStream { stream -> uploadProps.load(stream) }
+}
+
+def hasUploadSigning = ["storeFile", "storePassword", "keyAlias", "keyPassword"].every {
+    uploadProps.getProperty(it)
+}
+
 def escapeBuildConfigString = { value ->
     '"' + value.replace("\\", "\\\\").replace("\"", "\\\"") + '"'
 }
@@ -25,6 +35,25 @@ android {
 
         buildConfigField "String", "XAI_API_KEY", escapeBuildConfigString(localProps.getProperty("xaiApiKey", "PASTE_XAI_API_KEY_HERE"))
         buildConfigField "String", "XAI_MODEL", escapeBuildConfigString(localProps.getProperty("xaiModel", "grok-4.5"))
+    }
+
+    signingConfigs {
+        if (hasUploadSigning) {
+            release {
+                storeFile rootProject.file(uploadProps.getProperty("storeFile"))
+                storePassword uploadProps.getProperty("storePassword")
+                keyAlias uploadProps.getProperty("keyAlias")
+                keyPassword uploadProps.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasUploadSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 
     buildFeatures {
