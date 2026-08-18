@@ -45,6 +45,13 @@ tempCodeRunnerFile.py
 .envrc
 local.properties
 AndroidApp/local.properties
+keystore.properties
+AndroidApp/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
 *.secret
 secrets.*
 .pypirc
